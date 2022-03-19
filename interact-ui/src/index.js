@@ -3,11 +3,13 @@ import ReactDOM from 'react-dom';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
-import AudienceView from './AudienceViews/AudienceView'
+import AudienceView from './Containers/AudienceView'
+import AudienceLiveResultsView from './Containers/AudienceLiveResultsView'
 
 ReactDOM.render(
   <React.StrictMode>
-    <AudienceView />
+    {/* <AudienceView /> */}
+    <AudienceLiveResultsView/>
   </React.StrictMode>,
   document.getElementById('root')
 );
