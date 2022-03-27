@@ -1,4 +1,4 @@
-// This file is main launch for the server
+// This file is main launcher for the server
 package main
 
 import (
@@ -21,12 +21,11 @@ func main() {
 	// flag.Lookup("log_dir").Value.Set("logs/")
 	flag.Parse()
 
-	webServer := web.NewWebServer(addr)
-	webServer.Handlers()
+	webServer := web.NewWebServer(*addr)
+	waitGroup.Add(1)
 
 	go webServer.Run()
 	defer glog.Error("Server ended")
 
-	waitGroup.Add(1)
 	waitGroup.Wait()
 }

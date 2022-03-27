@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"github.com/golang/glog"
 	socketio "github.com/googollee/go-socket.io"
+	data "interact/server/config/data"
 	"net/http"
 )
 
-func CreateInstanceHandler(w http.ResponseWriter, r *http.Request, sockets map[string]*socketio.Server) error {
+func CreateInstanceHandler(w http.ResponseWriter, r *http.Request, socket *socketio.Server, room *data.RoomInstance) error {
 	/*
 		Usage of r:
 		r.Method  // request method
