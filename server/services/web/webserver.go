@@ -6,13 +6,14 @@ import (
 
 	"github.com/golang/glog"
 	socketio "github.com/googollee/go-socket.io"
+	"github.com/gorilla/mux"
 	data "interact/server/config/data"
-	restHandler "interact/server/services/rest"
+	rest "interact/server/services/rest"
 )
 
 type WebServer struct {
 	addr           *string
-	serverMux      *http.ServeMux
+	serverMux      *mux.Router
 	socketInstance *socketio.Server
 	roomInstance   *data.RoomInstance
 }
@@ -23,7 +24,7 @@ func NewWebServer(addr string) *WebServer {
 	webServer.socketInstance = NewWebSocket()
 	//TODO: Add event handling of the socket instance using the EventHandling
 	// func in websocket.go OR add them appropriately when needed
-	webServer.serverMux = http.NewServeMux()
+	webServer.serverMux = mux.NewRouter()
 	webServer.Handlers()
 	return webServer
 }
@@ -31,7 +32,27 @@ func NewWebServer(addr string) *WebServer {
 func (server *WebServer) Handlers() {
 	server.serverMux.HandleFunc("/createEvent", func(w http.ResponseWriter, r *http.Request) {
 		// sample way to send the socketInstance, roomInstance
-		restHandler.CreateInstanceHandler(w, r, server.socketInstance, server.roomInstance)
+		rest.CreateInstanceHandler(w, r, server.socketInstance, server.roomInstance)
+	})
+	// TODO: Add HTTP Method, schemes
+	server.serverMux.HandleFunc("/{roomId}/sendResponse/{clientId}", func(w http.ResponseWriter, r *http.Request) {
+		rest.ClientsResponseHandler(w, r, server.socketInstance, server.roomInstance)
+	})
+
+	server.serverMux.HandleFunc("/{roomId}/addLiveQuestion", func(w http.ResponseWriter, r *http.Request) {
+		rest.AddLiveQuestion(w, r, server.socketInstance, server.roomInstance)
+	})
+
+	server.serverMux.HandleFunc("/{roomId}/fetchLiveQuestion/{clientId}", func(w http.ResponseWriter, r *http.Request) {
+		rest.FetchLiveQuestion(w, r, server.socketInstance, server.roomInstance)
+	})
+
+	server.serverMux.HandleFunc("/{roomId}/endEvent", func(w http.ResponseWriter, r *http.Request) {
+		rest.EndEvent(w, r, server.socketInstance, server.roomInstance)
+	})
+
+	server.serverMux.HandleFunc("/{roomId}/nextLiveQuestion", func(w http.ResponseWriter, r *http.Request) {
+		rest.MoveToNextQuestion(w, r, server.socketInstance, server.roomInstance)
 	})
 }
 
