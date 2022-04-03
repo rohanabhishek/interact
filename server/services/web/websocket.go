@@ -13,6 +13,7 @@ func NewWebSocket() *socketio.Server {
 
 // Event Handling of the Socket.IO Server
 func EventHandling(ws *socketio.Server) {
+	glog.V(2).Info("SocketIO Server's Event Handling")
 	// TODO(Rohan): Use the feature of Rooms in Socket.IO while broadcasting
 	// to all the clients in a Poll-Instance
 	// ws.OnConnect("/", func(s socketio.Conn) error {
