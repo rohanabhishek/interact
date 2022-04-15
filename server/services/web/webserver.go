@@ -2,13 +2,15 @@
 package web
 
 import (
+	"errors"
 	"net/http"
+
+	data "interact/server/config/data"
+	rest "interact/server/services/rest"
 
 	"github.com/golang/glog"
 	socketio "github.com/googollee/go-socket.io"
 	"github.com/gorilla/mux"
-	data "interact/server/config/data"
-	rest "interact/server/services/rest"
 )
 
 type WebServer struct {
@@ -32,27 +34,36 @@ func NewWebServer(addr string) *WebServer {
 func (server *WebServer) Handlers() {
 	server.serverMux.HandleFunc("/createEvent", func(w http.ResponseWriter, r *http.Request) {
 		// sample way to send the socketInstance, roomInstance
-		rest.CreateInstanceHandler(w, r, server.socketInstance, server.roomInstance)
+		roomId, err := server.NewRoomInstance()
+		errMsg := ""
+		if err != nil {
+			errMsg = err.Error()
+		}
+		response := rest.CreateInstanceResponse{
+			RoomId: roomId,
+			Error:  errMsg,
+		}
+		rest.CreateInstanceHandler(w, r, server.roomInstance, response)
 	})
 	// TODO: Add HTTP Method, schemes
-	server.serverMux.HandleFunc("/{roomId}/sendResponse/{clientId}", func(w http.ResponseWriter, r *http.Request) {
-		rest.ClientsResponseHandler(w, r, server.socketInstance, server.roomInstance)
+	server.serverMux.HandleFunc("/{roomId}/sendResponse", func(w http.ResponseWriter, r *http.Request) {
+		rest.ClientsResponseHandler(w, r, server.roomInstance)
 	})
 
 	server.serverMux.HandleFunc("/{roomId}/addLiveQuestion", func(w http.ResponseWriter, r *http.Request) {
-		rest.AddLiveQuestion(w, r, server.socketInstance, server.roomInstance)
+		rest.AddLiveQuestionHandler(w, r, server.roomInstance)
 	})
 
-	server.serverMux.HandleFunc("/{roomId}/fetchLiveQuestion/{clientId}", func(w http.ResponseWriter, r *http.Request) {
-		rest.FetchLiveQuestion(w, r, server.socketInstance, server.roomInstance)
+	server.serverMux.HandleFunc("/{roomId}/fetchLiveQuestion", func(w http.ResponseWriter, r *http.Request) {
+		rest.FetchLiveQuestionHandler(w, r, server.roomInstance)
 	})
 
 	server.serverMux.HandleFunc("/{roomId}/endEvent", func(w http.ResponseWriter, r *http.Request) {
-		rest.EndEvent(w, r, server.socketInstance, server.roomInstance)
+		rest.EndEventHandler(w, r, server.roomInstance)
 	})
 
 	server.serverMux.HandleFunc("/{roomId}/nextLiveQuestion", func(w http.ResponseWriter, r *http.Request) {
-		rest.MoveToNextQuestion(w, r, server.socketInstance, server.roomInstance)
+		rest.MoveToNextQuestionHandler(w, r, server.roomInstance)
 	})
 }
 
@@ -60,4 +71,13 @@ func (server *WebServer) Run() {
 	glog.Info("Server listening on", *server.addr)
 	// Here we can use ListenAndServeTLS also
 	glog.Fatal(http.ListenAndServe(*server.addr, server.serverMux))
+}
+
+func (server *WebServer) NewRoomInstance() (string, error) {
+	if server.roomInstance != nil {
+		glog.Error("server roomInstance is not nil, Attempt to overwrite it")
+		return "", errors.New("server roomInstance is not nil, Attempt to overwrite it")
+	}
+	server.roomInstance = data.NewRoomInstance()
+	return server.roomInstance.GetRoomId(), nil
 }
