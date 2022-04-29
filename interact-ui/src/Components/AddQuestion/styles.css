@@ -1,0 +1,38 @@
+.box {
+  display: 'flex';
+  align-items: center;
+  max-width: max-content;
+  min-width: 1000px;
+}
+
+.div-style {
+  display:'flex';
+  align-items: center;
+}
+
+.text-child {
+  display: inline-block;
+  width: 85%;
+  padding: 1%;
+
+}
+
+.button-child {
+  display: inline-block;
+  width: full;
+}
+
+.center-display {
+  display:'flex';
+  align-self: center;
+  margin-left: 30%;
+  margin-right: 30%;
+  margin-top: 10%;
+}
+
+.fab {
+  float: right;
+  align-items: center;
+  margin-right: 1%;
+  padding: 16px
+}

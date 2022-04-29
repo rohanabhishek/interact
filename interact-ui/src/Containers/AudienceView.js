@@ -15,7 +15,7 @@ const AudienceView = () => {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
 
-    useEffect(()=>{
+    useEffect = (()=>{
         fetch(`/fetchLiveQuestion/${clientId}`)
         .then((response) => {
             if(!response.ok){
@@ -31,15 +31,15 @@ const AudienceView = () => {
         })
         .catch((error)=>{
             setError(error)
-        })        
+        })
     },[])
 
     return(
         //TODO: handle loading and error states.
 
         <div>
-        <MultipleChoiceQuestionCard 
-            question={data.question} 
+        <MultipleChoiceQuestionCard
+            question={data.question}
             choices={data.answers}
             selected = {selected}
             setSelected = {setSelected}
