@@ -1,6 +1,6 @@
 import { Typography , Card, CardHeader, Box, LinearProgress} from "@mui/material";
 import PropTypes from 'prop-types';
-
+import { useEffect,useRef } from "react";
 
 const LiveResultsComponent = ({question, results}) => {
     return(
@@ -16,9 +16,9 @@ const LiveResultsComponent = ({question, results}) => {
             <CardHeader title={question} sx={{alignSelf: 'center'}} />
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems:'self-start' }}>
 
-                {results.map((result) =>{
+                {results.map((result,i) =>{
                    return(
-                       <Box sx={{flexDirection: ' column' , width: "25%"}}>
+                       <Box sx={{flexDirection: ' column' , width: "25%"}} key={i}>
                             <Typography>{result.option}</Typography>
                             <LinearProgressWithLabel value={result.percentage}/>
                        </Box> 
