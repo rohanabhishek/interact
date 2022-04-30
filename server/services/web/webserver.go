@@ -2,7 +2,7 @@
 package web
 
 import (
-	data "interact/server/config/data"
+	room "interact/server/room"
 	rest "interact/server/services/rest"
 	socket "interact/server/services/socket"
 	"net/http"
@@ -13,17 +13,16 @@ import (
 )
 
 type WebServer struct {
-	addr          *string
-	serverMux     *mux.Router
-	roomInstance  *data.RoomInstance
-	ClientHandler *socket.ClientHandler
+	addr      *string
+	serverMux *mux.Router
+	//TODO: Map of room instances
+	roomInstance *room.RoomInstance
 }
 
 func NewWebServer(addr string) *WebServer {
 	webServer := new(WebServer)
 	webServer.addr = &addr
-	webServer.ClientHandler = socket.NewClientHandler()
-	go webServer.ClientHandler.Run()
+	webServer.roomInstance = room.NewRoomInstance()
 	//TODO: Add event handling of the socket instance using the EventHandling
 	// func in websocket.go OR add them appropriately when needed
 	webServer.serverMux = mux.NewRouter()
@@ -57,14 +56,9 @@ func (server *WebServer) Handlers() {
 		rest.MoveToNextQuestion(w, r, server.roomInstance)
 	})
 
-	//TODO: Remove this
-	server.serverMux.HandleFunc("/{roomId}/socket", func(w http.ResponseWriter, r *http.Request) {
-		socket.WebSocketHandler(w, r, server.roomInstance)
-	})
-
 	//TODO: add roomId to url
-	server.serverMux.HandleFunc("/socket", func(w http.ResponseWriter, r *http.Request) {
-		socket.ServeWebsocket(server.ClientHandler, w, r)
+	server.serverMux.HandleFunc("/{roomId}/socket", func(w http.ResponseWriter, r *http.Request) {
+		socket.ServeWebsocket(server.roomInstance.ClientHandler, w, r)
 	})
 
 }
@@ -73,14 +67,14 @@ func (server *WebServer) Run() {
 	glog.Info("Server listening on", *server.addr)
 
 	//TODO: Remove this and proper json handling
-	str := "{\"question\":\"WhoistheCaptainofIndianCricketTeam\",\"results\":[{\"option\":\"kohli\",\"percentage\":20},{\"option\":\"Rohit\",\"percentage\":50},{\"option\":\"Pant\",\"percentage\":30}]}"
+	str := `{"question":"WhoistheCaptainofIndianCricketTeam","results":[{"option":"kohli","percentage":20},{"option":"Rohit","percentage":50},{"option":"Pant","percentage":30}]}`
 
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(1 * time.Second)
 	go func() {
 		for {
 			select {
 			case <-ticker.C:
-				server.ClientHandler.Broadcast <- []byte(str)
+				server.roomInstance.ClientHandler.Broadcast <- []byte(str)
 			}
 		}
 	}()

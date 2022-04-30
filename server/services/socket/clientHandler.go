@@ -15,15 +15,20 @@ type ClientHandler struct {
 }
 
 func NewClientHandler() *ClientHandler {
-	return &ClientHandler{
+	ch := &ClientHandler{
 		Broadcast:  make(chan []byte),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		clients:    make(map[*Client]bool),
 	}
+
+	//run client handler
+	go ch.run()
+
+	return ch
 }
 
-func (ch *ClientHandler) Run() {
+func (ch *ClientHandler) run() {
 	for {
 		select {
 

@@ -29,7 +29,7 @@ func (c *Client) writeLiveResults() {
 			}
 
 			//Since we make sure only one message is sent, else we need to handle multiple messages
-			c.conn.WriteJSON(message)
+			c.conn.WriteMessage(1, message)
 		}
 	}
 }
