@@ -4,7 +4,7 @@ import LiveResultsComponent from "../Components/LiveResultsComponent";
 const AudienceLiveResultsView = ()=>{
     // let question = "Who is the Captain of Indian Cricket Team";
     // let results = [{"option": "kohli","percentage": 20}, {"option": "Rohit","percentage": 50}, {"option": "Pant","percentage": 30}]
-    
+
     //TODO: Loading and error handling
     const ws = useRef(null);
 
@@ -38,6 +38,6 @@ const AudienceLiveResultsView = ()=>{
     return(
         (!loading && <LiveResultsComponent question={data.question} results={data.results} />)
     );
-}   
+}
 
 export default AudienceLiveResultsView;

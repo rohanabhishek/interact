@@ -5,7 +5,7 @@ const LiveResultsComponent = ({question, results}) => {
     return(
 
         <Box alignContent={'center'} flex={1}>
-          <Card   
+          <Card
             variant="outlined"
             sx={{
                 height: "100vh",
@@ -13,13 +13,13 @@ const LiveResultsComponent = ({question, results}) => {
                 margin:'auto',
                 transition: 0.3,
                 marginTop: "10px",
-                marginBottom: "10px", 
-                boxShadow: "0 4px 8px 0 rgba(0,0,0,0.2)", 
-                "&:hover": {boxShadow: "0 8px 16px 0 rgba(0,0,0,0.2)"} 
+                marginBottom: "10px",
+                boxShadow: "0 4px 8px 0 rgba(0,0,0,0.2)",
+                "&:hover": {boxShadow: "0 8px 16px 0 rgba(0,0,0,0.2)"}
             }}
           >
           <CardHeader title={question} sx={{alignSelf: 'center'}} />
-          
+
           <Box sx={{ display: 'flex', flexDirection: 'column' }}>
 
               {results.map((result,i) =>{
@@ -32,11 +32,11 @@ const LiveResultsComponent = ({question, results}) => {
                       <LinearProgressWithLabel value={result.percentage}/>
                     </CardContent>
                   </Box>
-              )})}                             
-          </Box>            
+              )})}
+          </Box>
           </Card>
         </Box>
-        
+
     );
 }
 
@@ -55,7 +55,7 @@ function LinearProgressWithLabel(props) {
       </Box>
     );
   }
-  
+
   LinearProgressWithLabel.propTypes = {
     /**
      * The value of the progress indicator for the determinate and buffer variants.

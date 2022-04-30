@@ -43,8 +43,8 @@ const AudienceView = () => {
         //TODO: handle loading and error states.
 
         (!loading && <div>
-        <MultipleChoiceQuestionCard 
-            question={data.question} 
+        <MultipleChoiceQuestionCard
+            question={data.question}
             choices={data.answers}
             selected = {selected}
             setSelected = {setSelected}
