@@ -3,9 +3,10 @@ package main
 
 import (
 	"flag"
-	"github.com/golang/glog"
 	web "interact/server/services/web"
 	"sync"
+
+	"github.com/golang/glog"
 )
 
 var (

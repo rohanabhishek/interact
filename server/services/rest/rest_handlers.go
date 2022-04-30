@@ -3,14 +3,14 @@ package rest
 
 import (
 	"fmt"
-	"github.com/golang/glog"
-	socketio "github.com/googollee/go-socket.io"
-	"github.com/gorilla/mux"
-	data "interact/server/config/data"
+	room "interact/server/room"
 	"net/http"
+
+	"github.com/golang/glog"
+	"github.com/gorilla/mux"
 )
 
-func CreateInstanceHandler(w http.ResponseWriter, r *http.Request, socket *socketio.Server, room *data.RoomInstance) {
+func CreateInstanceHandler(w http.ResponseWriter, r *http.Request, room *room.RoomInstance) {
 
 	/*
 		Usage of r:
@@ -24,27 +24,27 @@ func CreateInstanceHandler(w http.ResponseWriter, r *http.Request, socket *socke
 	fmt.Fprintf(w, "<h1>%s</h1><div>%s</div>", "Interact", "Application")
 }
 
-func ClientsResponseHandler(w http.ResponseWriter, r *http.Request, socket *socketio.Server, room *data.RoomInstance) {
+func ClientsResponseHandler(w http.ResponseWriter, r *http.Request, room *room.RoomInstance) {
 	vars := mux.Vars(r)
 	fmt.Fprintf(w, "<h1>%s</h1><div>%v</div>", "Interact", vars)
 }
 
-func AddLiveQuestion(w http.ResponseWriter, r *http.Request, socket *socketio.Server, room *data.RoomInstance) {
+func AddLiveQuestion(w http.ResponseWriter, r *http.Request, room *room.RoomInstance) {
 	vars := mux.Vars(r)
 	fmt.Fprintf(w, "<h1>%s</h1><div>%v</div>", "Interact", vars)
 }
 
-func FetchLiveQuestion(w http.ResponseWriter, r *http.Request, socket *socketio.Server, room *data.RoomInstance) {
+func FetchLiveQuestion(w http.ResponseWriter, r *http.Request, room *room.RoomInstance) {
 	vars := mux.Vars(r)
 	fmt.Fprintf(w, "<h1>%s</h1><div>%v</div>", "Interact", vars)
 }
 
-func EndEvent(w http.ResponseWriter, r *http.Request, socket *socketio.Server, room *data.RoomInstance) {
+func EndEvent(w http.ResponseWriter, r *http.Request, room *room.RoomInstance) {
 	vars := mux.Vars(r)
 	fmt.Fprintf(w, "<h1>%s</h1><div>%v</div>", "Interact", vars)
 }
 
-func MoveToNextQuestion(w http.ResponseWriter, r *http.Request, socket *socketio.Server, room *data.RoomInstance) {
+func MoveToNextQuestion(w http.ResponseWriter, r *http.Request, room *room.RoomInstance) {
 	vars := mux.Vars(r)
 	fmt.Fprintf(w, "<h1>%s</h1><div>%v</div>", "Interact", vars)
 }
