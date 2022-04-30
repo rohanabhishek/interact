@@ -2,6 +2,7 @@
 package web
 
 import (
+	"errors"
 	room "interact/server/room"
 	rest "interact/server/services/rest"
 	socket "interact/server/services/socket"
@@ -22,9 +23,6 @@ type WebServer struct {
 func NewWebServer(addr string) *WebServer {
 	webServer := new(WebServer)
 	webServer.addr = &addr
-	webServer.roomInstance = room.NewRoomInstance()
-	//TODO: Add event handling of the socket instance using the EventHandling
-	// func in websocket.go OR add them appropriately when needed
 	webServer.serverMux = mux.NewRouter()
 	webServer.Handlers()
 	return webServer
@@ -33,27 +31,45 @@ func NewWebServer(addr string) *WebServer {
 func (server *WebServer) Handlers() {
 	server.serverMux.HandleFunc("/createEvent", func(w http.ResponseWriter, r *http.Request) {
 		// sample way to send the socketInstance, roomInstance
-		rest.CreateInstanceHandler(w, r, server.roomInstance)
+		roomId, err := server.NewRoomInstance()
+		errMsg := ""
+		if err != nil {
+			errMsg = err.Error()
+		}
+		response := rest.CreateInstanceResponse{
+			RoomId: roomId,
+			Error:  errMsg,
+		}
+		rest.CreateInstanceHandler(w, r, server.roomInstance, response)
 	})
+
+	server.serverMux.HandleFunc("/{roomId}/joinEvent", func(w http.ResponseWriter, r *http.Request) {
+		rest.JoinEventHandler(w, r, server.roomInstance)
+	})
+
 	// TODO: Add HTTP Method, schemes
-	server.serverMux.HandleFunc("/{roomId}/sendResponse/{clientId}", func(w http.ResponseWriter, r *http.Request) {
+	server.serverMux.HandleFunc("/{roomId}/sendResponse", func(w http.ResponseWriter, r *http.Request) {
 		rest.ClientsResponseHandler(w, r, server.roomInstance)
 	})
 
 	server.serverMux.HandleFunc("/{roomId}/addLiveQuestion", func(w http.ResponseWriter, r *http.Request) {
-		rest.AddLiveQuestion(w, r, server.roomInstance)
+		rest.AddLiveQuestionHandler(w, r, server.roomInstance)
 	})
 
-	server.serverMux.HandleFunc("/{roomId}/fetchLiveQuestion/{clientId}", func(w http.ResponseWriter, r *http.Request) {
-		rest.FetchLiveQuestion(w, r, server.roomInstance)
+	server.serverMux.HandleFunc("/{roomId}/fetchCurrentState", func(w http.ResponseWriter, r *http.Request) {
+		rest.FetchCurrentStateHandler(w, r, server.roomInstance)
+	})
+
+	server.serverMux.HandleFunc("/{roomId}/fetchLiveQuestion", func(w http.ResponseWriter, r *http.Request) {
+		rest.FetchLiveQuestionHandler(w, r, server.roomInstance)
 	})
 
 	server.serverMux.HandleFunc("/{roomId}/endEvent", func(w http.ResponseWriter, r *http.Request) {
-		rest.EndEvent(w, r, server.roomInstance)
+		rest.EndEventHandler(w, r, server.roomInstance)
 	})
 
 	server.serverMux.HandleFunc("/{roomId}/nextLiveQuestion", func(w http.ResponseWriter, r *http.Request) {
-		rest.MoveToNextQuestion(w, r, server.roomInstance)
+		rest.MoveToNextQuestionHandler(w, r, server.roomInstance)
 	})
 
 	server.serverMux.HandleFunc("/{roomId}/liveResults", func(w http.ResponseWriter, r *http.Request) {
@@ -79,7 +95,9 @@ func (server *WebServer) Run() {
 		for {
 			select {
 			case <-ticker.C:
-				server.roomInstance.LiveResultsHandler.Broadcast <- []byte(str)
+				if server.roomInstance != nil {
+					server.roomInstance.LiveResultsHandler.Broadcast <- []byte(str)
+				}
 			}
 		}
 	}()
@@ -88,7 +106,9 @@ func (server *WebServer) Run() {
 		for {
 			select {
 			case <-ticker.C:
-				server.roomInstance.LiveQuestionHandler.Broadcast <- []byte(strq)
+				if server.roomInstance != nil {
+					server.roomInstance.LiveQuestionHandler.Broadcast <- []byte(strq)
+				}
 			}
 		}
 	}()
@@ -97,3 +117,27 @@ func (server *WebServer) Run() {
 	glog.Fatal(http.ListenAndServe(*server.addr, server.serverMux))
 
 }
+
+func (server *WebServer) NewRoomInstance() (string, error) {
+	if server.roomInstance != nil {
+		glog.Error("server roomInstance is not nil, Attempt to overwrite it")
+		return "", errors.New("server roomInstance is not nil, Attempt to overwrite it")
+	}
+	server.roomInstance = room.NewRoomInstance()
+	return server.roomInstance.GetRoomId(), nil
+}
+
+/*
+APIs to be invoked from client side
+- After a client joins using the JoinEvent API, it then triggers
+	FetchCurrentState API,
+		- if its response is WAITING_ON_CLIENTS_FOR_RESPONSES
+			then trigger the FetchCurrentQuestion API
+		- else display on client side WAITING_ON_HOST_FOR_QUESTION
+	- This approach could cause an issue, as the server could simultaneously invoke
+		the other event after the FetchCurrentState.
+	- So, will be better to use Socket to gather the state??
+- At the start of the event, AddLiveQuestion is directly invoked
+ After the event has started, to add a new question, MoveToNextQuestion,
+ AddLiveQuestion are invoked by server
+*/

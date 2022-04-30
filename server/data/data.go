@@ -1,26 +1,34 @@
 // This file consists of the structures to store data for different eventTypes.
 package data
 
-type questionType int
+import (
+	"encoding/json"
+	"errors"
+	"github.com/golang/glog"
+	"sync"
+)
+
+type QuestionType int
 
 const (
-	wordAnswer questionType = iota
-	singleCorrect
-	multiCorrect
+	WordAnswer QuestionType = iota
+	SingleCorrect
+	MultiCorrect
 )
 
 type LivePollData struct {
 	// id denotes the Question Id
-	id    int
-	owner *string
-	questionType
-	question *string
+	id           int
+	Owner        *string `json:"owner"`
+	QuestionType `json:"questionType"`
+	Question     *string `json:"question"`
 	// options, answer - Used only incase of MCQs
-	options []*string
+	Options []*string `json:"options"`
 	// Use bitmask/sortedOption String to store the answer
-	answer    *string
-	responses []*clientResponse
-	// TODO: Add lock to handle the concurrency of collecting responses
+	Answer          *string `json:"answer"`
+	responses       []*clientResponse
+	resultsCountMap map[string]int
+	mutex           sync.RWMutex
 }
 
 // Instead of ResponseData, could use interface for word/mcq response since
@@ -28,16 +36,68 @@ type LivePollData struct {
 // the same struct for unmarshalling the clients API data response
 // Use utils.go for any conversions
 type ResponseData struct {
-	wordResponse *string
-	mcqResponse  *string
+	WordResponse *string `json:wordResponse`
+	McqResponse  *string `json:mcqResponse`
 }
 
 type clientResponse struct {
-	clientId int
-	ResponseData
+	ClientId     int `json:clientId`
+	ResponseData `json:"responseData"`
 }
 
-type LivePollResults struct {
-	questionId     int
-	answerCountMap map[string]int
+// GetWordResponse returns the WordResponse
+func (data *ResponseData) GetWordResponse() (string, error) {
+	if data.WordResponse == nil {
+		return "", errors.New("word Response is nil")
+	}
+	return *data.WordResponse, nil
+}
+
+// GetWordResponse returns the McqResponse
+func (data *ResponseData) GetMcqResponse() (string, error) {
+	if data.McqResponse == nil {
+		return "", errors.New("mcq Response is nil")
+	}
+	return *data.McqResponse, nil
+}
+
+func NewLivePollData(args []byte) (*LivePollData, error) {
+	livePollData := new(LivePollData)
+	livePollData.resultsCountMap = make(map[string]int)
+	if err := json.Unmarshal(args, livePollData); err != nil {
+		glog.Error("Unmarshal of LivePollData failed", err.Error())
+		return nil, err
+	}
+	return livePollData, nil
+}
+
+func (pollData *LivePollData) CollectClientResponse(apiResponse []byte) (map[string]int, error) {
+	response := new(clientResponse)
+	if err := json.Unmarshal(apiResponse, response); err != nil {
+		glog.Error("Unmarshal of ClientResponse failed", err.Error())
+		return nil, err
+	}
+	pollData.mutex.Lock()
+	defer pollData.mutex.Unlock()
+	pollData.responses = append(pollData.responses, response)
+	answer, err := GetAnswerAsString(response.ResponseData, pollData.QuestionType)
+	if err != nil {
+		glog.Errorln("collectClientResponse failed", err.Error())
+		return nil, err
+	}
+	if count, exists := pollData.resultsCountMap[answer]; exists {
+		pollData.resultsCountMap[answer] = count + 1
+	} else {
+		pollData.resultsCountMap[answer] = 1
+	}
+	return pollData.resultsCountMap, nil
+}
+
+func (pollData *LivePollData) getResponseStats() map[string]int {
+	// TODO: Use utils.go and convert the response as per the UI's
+	// frontend handler requirement which will be sent through the socket IO
+	// We might need to send the Answer also, so as to display on UI
+	pollData.mutex.RLock()
+	defer pollData.mutex.RUnlock()
+	return pollData.resultsCountMap
 }
