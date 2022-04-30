@@ -8,8 +8,8 @@ import AudienceLiveResultsView from './Containers/AudienceLiveResultsView'
 
 ReactDOM.render(
   <React.StrictMode>
-    {/* <AudienceView /> */}
-    <AudienceLiveResultsView/>
+    <AudienceView />
+    {/* <AudienceLiveResultsView/> */}
   </React.StrictMode>,
   document.getElementById('root')
 );

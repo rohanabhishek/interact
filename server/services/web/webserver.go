@@ -56,9 +56,12 @@ func (server *WebServer) Handlers() {
 		rest.MoveToNextQuestion(w, r, server.roomInstance)
 	})
 
-	//TODO: add roomId to url
-	server.serverMux.HandleFunc("/{roomId}/socket", func(w http.ResponseWriter, r *http.Request) {
-		socket.ServeWebsocket(server.roomInstance.ClientHandler, w, r)
+	server.serverMux.HandleFunc("/{roomId}/liveResults", func(w http.ResponseWriter, r *http.Request) {
+		socket.ServeWebsocket(server.roomInstance.LiveResultsHandler, w, r)
+	})
+
+	server.serverMux.HandleFunc("/{roomId}/liveQuestion", func(w http.ResponseWriter, r *http.Request) {
+		socket.ServeWebsocket(server.roomInstance.LiveQuestionHandler, w, r)
 	})
 
 }
@@ -67,14 +70,25 @@ func (server *WebServer) Run() {
 	glog.Info("Server listening on", *server.addr)
 
 	//TODO: Remove this and proper json handling
-	str := `{"question":"WhoistheCaptainofIndianCricketTeam","results":[{"option":"kohli","percentage":20},{"option":"Rohit","percentage":50},{"option":"Pant","percentage":30}]}`
+
+	str := `{"question":"Who is the Captain of Indian Cricket Team","results":[{"option":"Kohli","percentage":20},{"option":"Rohit","percentage":50},{"option":"Pant","percentage":30}]}`
+	strq := `{"question":"Who is the Captain of Indian Cricket Team","answers":["Kohli", "Rohit", "Pant"]}`
 
 	ticker := time.NewTicker(1 * time.Second)
 	go func() {
 		for {
 			select {
 			case <-ticker.C:
-				server.roomInstance.ClientHandler.Broadcast <- []byte(str)
+				server.roomInstance.LiveResultsHandler.Broadcast <- []byte(str)
+			}
+		}
+	}()
+
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				server.roomInstance.LiveQuestionHandler.Broadcast <- []byte(strq)
 			}
 		}
 	}()

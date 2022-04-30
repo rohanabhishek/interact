@@ -1,30 +1,42 @@
-import { Typography , Card, CardHeader, Box, LinearProgress} from "@mui/material";
+import { Typography , Card, CardHeader, Box, LinearProgress, CardContent} from "@mui/material";
 import PropTypes from 'prop-types';
-import { useEffect,useRef } from "react";
 
 const LiveResultsComponent = ({question, results}) => {
     return(
-        <Card   
+
+        <Box alignContent={'center'} flex={1}>
+          <Card   
             variant="outlined"
             sx={{
+                height: "100vh",
+                width: "50%",
+                margin:'auto',
                 transition: 0.3,
+                marginTop: "10px",
                 marginBottom: "10px", 
                 boxShadow: "0 4px 8px 0 rgba(0,0,0,0.2)", 
                 "&:hover": {boxShadow: "0 8px 16px 0 rgba(0,0,0,0.2)"} 
             }}
-        >
-            <CardHeader title={question} sx={{alignSelf: 'center'}} />
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems:'self-start' }}>
+          >
+          <CardHeader title={question} sx={{alignSelf: 'center'}} />
+          
+          <Box sx={{ display: 'flex', flexDirection: 'column' }}>
 
-                {results.map((result,i) =>{
-                   return(
-                       <Box sx={{flexDirection: ' column' , width: "25%"}} key={i}>
-                            <Typography>{result.option}</Typography>
-                            <LinearProgressWithLabel value={result.percentage}/>
-                       </Box> 
-                )})}                             
-            </Box>            
-        </Card>
+              {results.map((result,i) =>{
+                return(
+                  <Box>
+                    <CardContent key={i}>
+                      <Typography gutterBottom variant="h5" component="div">
+                        {result.option}
+                      </Typography>
+                      <LinearProgressWithLabel value={result.percentage}/>
+                    </CardContent>
+                  </Box>
+              )})}                             
+          </Box>            
+          </Card>
+        </Box>
+        
     );
 }
 
@@ -32,11 +44,11 @@ const LiveResultsComponent = ({question, results}) => {
 function LinearProgressWithLabel(props) {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center' }}>
-        <Box sx={{ width: '100%', mr: 1 }}>
-          <LinearProgress sx={{height: "10px", borderRadius: 5}} variant="determinate" {...props} />
+        <Box sx={{ width: '75%', mr: 1 }}>
+          <LinearProgress sx={{height: "15px", borderTopRightRadius: "5px", borderBottomRightRadius: "5px"}} variant="determinate" value={props.value} />
         </Box>
-        <Box sx={{ minWidth: 35 }}>
-          <Typography variant="body2" color="text.secondary">{`${Math.round(
+        <Box >
+          <Typography variant="h6">{`${Math.round(
             props.value,
           )}%`}</Typography>
         </Box>

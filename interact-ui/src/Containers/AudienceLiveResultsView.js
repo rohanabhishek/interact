@@ -12,7 +12,7 @@ const AudienceLiveResultsView = ()=>{
     const[loading, setLoading] = useState(true)
 
     useEffect(() => {
-        ws.current = new WebSocket("ws://localhost:8080/socket");
+        ws.current = new WebSocket("ws://localhost:8080/1/liveResults");
         ws.current.onopen = () => console.log("ws opened");
         ws.current.onclose = () => console.log("ws closed");
 

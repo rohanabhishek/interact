@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import MultipleChoiceQuestionCard from '../Components/MultipleChoiceQuestionCard'
 import {Button, Box} from '@mui/material'
 
@@ -15,29 +15,34 @@ const AudienceView = () => {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
 
-    useEffect(()=>{
-        fetch(`/fetchLiveQuestion/${clientId}`)
-        .then((response) => {
-            if(!response.ok){
-                throw new Error(
-                    `The status is ${response.status}`
-                )
-            }
-            return response.json
-        })
-        .then((data)=> {
-            setData(data)
-            setLoading(false)
-        })
-        .catch((error)=>{
-            setError(error)
-        })        
-    },[])
+    const ws = useRef(null);
 
+    useEffect(() => {
+        ws.current = new WebSocket("ws://localhost:8080/1/liveQuestion");
+        ws.current.onopen = () => console.log("ws opened");
+        ws.current.onclose = () => console.log("ws closed");
+
+        const wsCurrent = ws.current;
+
+        return () => {
+            wsCurrent.close();
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!ws.current) return;
+
+        ws.current.onmessage = e => {
+            const message = JSON.parse(e.data);
+            console.log("e", message);
+            setData(message)
+            setLoading(false)
+        };
+    }, []);
     return(
         //TODO: handle loading and error states.
 
-        <div>
+        (!loading && <div>
         <MultipleChoiceQuestionCard 
             question={data.question} 
             choices={data.answers}
@@ -55,7 +60,7 @@ const AudienceView = () => {
             </Button>
         </Box>
 
-        </div>
+        </div>)
     );
 
 }

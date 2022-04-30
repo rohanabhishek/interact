@@ -32,15 +32,17 @@ type RoomInstance struct {
 	currentQuestion   *data.LivePollData
 	numOfParticipants int
 	// TODO: Check if lock is required while updating the numOfParticipates var
-	ClientHandler *socket.ClientHandler
+	LiveResultsHandler  *socket.ClientHandler
+	LiveQuestionHandler *socket.ClientHandler
 }
 
 const defaultId = "default-room-id"
 
 func NewRoomInstance() *RoomInstance {
 	room := &RoomInstance{
-		roomId:        defaultId,
-		ClientHandler: socket.NewClientHandler(),
+		roomId:              defaultId,
+		LiveResultsHandler:  socket.NewClientHandler(),
+		LiveQuestionHandler: socket.NewClientHandler(),
 	}
 
 	return room
