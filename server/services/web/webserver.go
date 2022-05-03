@@ -41,49 +41,50 @@ func (server *WebServer) Handlers() {
 			Error:  errMsg,
 		}
 		rest.CreateInstanceHandler(w, r, server.roomInstance, response)
-	})
+	}).Methods("POST")
 
 	server.serverMux.HandleFunc("/{roomId}/joinEvent", func(w http.ResponseWriter, r *http.Request) {
 		rest.JoinEventHandler(w, r, server.roomInstance)
-	})
+	}).Methods("POST")
 
 	// TODO: Add HTTP Method, schemes
 	server.serverMux.HandleFunc("/{roomId}/sendResponse", func(w http.ResponseWriter, r *http.Request) {
 		rest.ClientsResponseHandler(w, r, server.roomInstance)
-	})
+	}).Methods("POST")
 
 	server.serverMux.HandleFunc("/{roomId}/addLiveQuestion", func(w http.ResponseWriter, r *http.Request) {
 		rest.AddLiveQuestionHandler(w, r, server.roomInstance)
-	})
+	}).Methods("POST")
 
 	server.serverMux.HandleFunc("/{roomId}/fetchCurrentState", func(w http.ResponseWriter, r *http.Request) {
 		rest.FetchCurrentStateHandler(w, r, server.roomInstance)
-	})
+	}).Methods("GET")
 
 	server.serverMux.HandleFunc("/{roomId}/fetchLiveQuestion", func(w http.ResponseWriter, r *http.Request) {
 		rest.FetchLiveQuestionHandler(w, r, server.roomInstance)
-	})
+	}).Methods("GET")
 
 	server.serverMux.HandleFunc("/{roomId}/endEvent", func(w http.ResponseWriter, r *http.Request) {
 		rest.EndEventHandler(w, r, server.roomInstance)
-	})
+	}).Methods("POST")
 
 	server.serverMux.HandleFunc("/{roomId}/nextLiveQuestion", func(w http.ResponseWriter, r *http.Request) {
 		rest.MoveToNextQuestionHandler(w, r, server.roomInstance)
-	})
+	}).Methods("POST")
 
 	server.serverMux.HandleFunc("/{roomId}/liveResults", func(w http.ResponseWriter, r *http.Request) {
 		socket.ServeWebsocket(server.roomInstance.LiveResultsHandler, w, r)
-	})
+	}).Methods("POST")
 
 	server.serverMux.HandleFunc("/{roomId}/liveQuestion", func(w http.ResponseWriter, r *http.Request) {
 		socket.ServeWebsocket(server.roomInstance.LiveQuestionHandler, w, r)
-	})
+	}).Methods("POST")
 
 }
 
+// TODO: add shutdown of server
 func (server *WebServer) Run() {
-	glog.Info("Server listening on", *server.addr)
+	glog.Info("Server listening on ", *server.addr)
 
 	//TODO: Remove this and proper json handling
 
@@ -115,7 +116,6 @@ func (server *WebServer) Run() {
 
 	// Here we can use ListenAndServeTLS also
 	glog.Fatal(http.ListenAndServe(*server.addr, server.serverMux))
-
 }
 
 func (server *WebServer) NewRoomInstance() (string, error) {

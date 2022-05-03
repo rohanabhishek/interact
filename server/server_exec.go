@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	addr = flag.String("addr", ":8080", "Server runs on this Address")
+	addr = flag.String("addr", "127.0.0.1:8080", "Server runs on this Address")
 	// waitGroup to wait without ending the server
 	waitGroup sync.WaitGroup
 )
@@ -19,7 +19,7 @@ func main() {
 	// Print logs into the files and stdouterr
 	flag.Lookup("logtostderr").Value.Set("true")
 	// Logs to this directory
-	// flag.Lookup("log_dir").Value.Set("logs/")
+	flag.Lookup("log_dir").Value.Set("logs/")
 	flag.Parse()
 
 	webServer := web.NewWebServer(*addr)

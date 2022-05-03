@@ -26,7 +26,7 @@ type LivePollData struct {
 	Options []*string `json:"options"`
 	// Use bitmask/sortedOption String to store the answer
 	Answer          *string `json:"answer"`
-	responses       []*clientResponse
+	responses       []*ClientResponse
 	resultsCountMap map[string]int
 	mutex           sync.RWMutex
 }
@@ -36,13 +36,41 @@ type LivePollData struct {
 // the same struct for unmarshalling the clients API data response
 // Use utils.go for any conversions
 type ResponseData struct {
-	WordResponse *string `json:wordResponse`
-	McqResponse  *string `json:mcqResponse`
+	WordResponse *string `json:"wordResponse"`
+	McqResponse  *string `json:"mcqResponse"`
 }
 
-type clientResponse struct {
-	ClientId     int `json:clientId`
+type ClientResponse struct {
+	ClientId     int `json:"clientId"`
 	ResponseData `json:"responseData"`
+}
+
+func (clientResponse *ClientResponse) UnMarshal(bytes []byte, qtype QuestionType) error {
+	rawStructData := &struct {
+		ClientId int `json:"clientId"`
+		// Accepting the response as string so that we can handle the wordAnswers as well.
+		// Use the following syntax for mcq answers as A/ABC/1/123
+		Response string `json:"response"`
+	}{}
+	err := json.Unmarshal(bytes, rawStructData)
+	glog.Infof("clientResponse: bytes %v, rawStructData %v", bytes, rawStructData)
+	if err != nil {
+		glog.Error("clientResponse: Unmarshal failed", err.Error())
+		return err
+	}
+
+	clientResponse.ClientId = rawStructData.ClientId
+	switch qtype {
+	case SingleCorrect:
+		var responseData ResponseData
+		responseData.McqResponse = new(string)
+		mcqResponse := rawStructData.Response
+		responseData.McqResponse = &mcqResponse
+		clientResponse.ResponseData = responseData
+	}
+
+	glog.Infof("clientResponse Unmarshal: rawStructData: %v, clientResponse: %v", rawStructData, clientResponse)
+	return nil
 }
 
 // GetWordResponse returns the WordResponse
@@ -64,16 +92,49 @@ func (data *ResponseData) GetMcqResponse() (string, error) {
 func NewLivePollData(args []byte) (*LivePollData, error) {
 	livePollData := new(LivePollData)
 	livePollData.resultsCountMap = make(map[string]int)
-	if err := json.Unmarshal(args, livePollData); err != nil {
+	if err := livePollData.UnMarshal(args); err != nil {
 		glog.Error("Unmarshal of LivePollData failed", err.Error())
 		return nil, err
 	}
 	return livePollData, nil
 }
 
+func (pollData *LivePollData) UnMarshal(bytes []byte) error {
+	rawStructData := &struct {
+		Owner        *string     `json:"owner"`
+		QuestionType interface{} `json:"questionType"`
+		Question     *string     `json:"question"`
+		// options, answer - Used only incase of MCQs
+		Options []*string `json:"options"`
+		// Use bitmask/sortedOption String to store the answer
+		Answer *string `json:"answer"`
+	}{}
+	err := json.Unmarshal(bytes, rawStructData)
+	if err != nil {
+		glog.Error("RoomInstance: Unmarshal failed", err.Error())
+		return err
+	}
+	pollData.Owner = rawStructData.Owner
+	pollData.Question = rawStructData.Question
+
+	if rawStructData.Options != nil {
+		pollData.Options = rawStructData.Options
+	}
+
+	if rawStructData.Answer != nil {
+		pollData.Answer = rawStructData.Answer
+	}
+
+	switch rawStructData.QuestionType {
+	case "Single MCQ":
+		pollData.QuestionType = SingleCorrect
+	}
+	return nil
+}
+
 func (pollData *LivePollData) CollectClientResponse(apiResponse []byte) (map[string]int, error) {
-	response := new(clientResponse)
-	if err := json.Unmarshal(apiResponse, response); err != nil {
+	response := new(ClientResponse)
+	if err := response.UnMarshal(apiResponse, pollData.QuestionType); err != nil {
 		glog.Error("Unmarshal of ClientResponse failed", err.Error())
 		return nil, err
 	}
@@ -90,6 +151,7 @@ func (pollData *LivePollData) CollectClientResponse(apiResponse []byte) (map[str
 	} else {
 		pollData.resultsCountMap[answer] = 1
 	}
+	glog.V(2).Infof("resultsCountMap %v", pollData.resultsCountMap)
 	return pollData.resultsCountMap, nil
 }
 
