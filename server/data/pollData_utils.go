@@ -9,8 +9,10 @@ func GetAnswerAsString(response ResponseData,
 	switch questionType {
 	case WordAnswer:
 		return response.GetWordResponse()
-	// TODO: Add the handling of single, multi correction questions
+	// TODO: Add the handling of multi correct questions
 	// based on the API response received
+	case SingleCorrect:
+		return response.GetMcqResponse()
 	default:
 		return "", errors.New("unknown questionType found")
 	}

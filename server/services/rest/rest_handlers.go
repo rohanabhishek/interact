@@ -2,13 +2,13 @@
 package rest
 
 import (
-	"fmt"
+	// "fmt"
 	room "interact/server/room"
 	"net/http"
 
 	"encoding/json"
 	"github.com/golang/glog"
-	"github.com/gorilla/mux"
+	// "github.com/gorilla/mux"
 	"io"
 )
 
@@ -24,12 +24,16 @@ func CreateInstanceHandler(w http.ResponseWriter, r *http.Request, room *room.Ro
 		https://pkg.go.dev/net/http#Request
 	*/
 	glog.V(2).Info("CreateInstanceHandler: ", r)
+	glog.V(2).Info("CreateInstanceHandler Body: ", r.Body)
+
 	// Sample usecase to display text on webpage
-	vars := mux.Vars(r)
-	fmt.Fprintf(w, "<h1>%s</h1><div>%s</div><div>%v</div>", "Interact",
-		"Application", vars)
+	// vars := mux.Vars(r)
+	// fmt.Fprintf(w, "<h1>%s</h1><div>%s</div><div>%v</div>", "Interact",
+	// 	"Application", vars)
 	if roomInstanceResponse.Error != "" {
 		json.NewEncoder(w).Encode(roomInstanceResponse)
+		// resp, _ := json.Marshal(roomInstanceResponse)
+		// w.Write(resp)
 		return
 	}
 
@@ -50,13 +54,25 @@ func CreateInstanceHandler(w http.ResponseWriter, r *http.Request, room *room.Ro
 	// TODO: set the status of the APIs appropriately in case of errors
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(roomInstanceResponse)
+	/*
+		Two ways to write the response
+		1. The currently used method in server\services\rest\rest_handlers.go and decoding in server
+			server\test\server_handlers_test.go
+		2.
+			a. Encoding
+				responseBytes, err := json.Marshal(response)
+				w.Write(responseBytes)
+			b. Decoding
+				defer response.Body.Close()
+				body, err := io.ReadAll(response.Body)
+				json.Unmarshal(body, &receivedResponse)
+	*/
 }
 
 func JoinEventHandler(w http.ResponseWriter, r *http.Request, room *room.RoomInstance) {
 	glog.V(2).Info("JoinEventHandler: ", r)
 	var response JoinEventResponse
 	response.ClientId = room.GetNewClientId()
-	response.Error = ""
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
@@ -84,7 +100,12 @@ func ClientsResponseHandler(w http.ResponseWriter, r *http.Request, room *room.R
 
 	// TODO: Add this client to socket, who can view the results
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	// json.NewEncoder(w).Encode(response)
+	responseBytes, err := json.Marshal(response)
+	if err != nil {
+		glog.Error(err)
+	}
+	w.Write(responseBytes)
 }
 
 func AddLiveQuestionHandler(w http.ResponseWriter, r *http.Request, room *room.RoomInstance) {

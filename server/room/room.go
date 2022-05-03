@@ -37,14 +37,14 @@ type RoomInstance struct {
 	// it is added to the pollsData after the question is Done ie., the host
 	// moves to the next question OR stops collecting the responses for the
 	// question OR ends the event
-	currentQuestion   *data.LivePollData
-	numOfParticipants int
+	currentQuestion     *data.LivePollData
+	numOfParticipants   int
 	LiveResultsHandler  *socket.ClientHandler
 	LiveQuestionHandler *socket.ClientHandler
 	// qMutex handles sync for questions data
 	// pMutex handles sync for participants count
-	qMutex        sync.RWMutex
-	pMutex        sync.Mutex
+	qMutex sync.RWMutex
+	pMutex sync.Mutex
 }
 
 const defaultId = "default-room-id"
@@ -52,9 +52,9 @@ const defaultId = "default-room-id"
 func NewRoomInstance() *RoomInstance {
 	room := &RoomInstance{
 		roomId:              defaultId,
-		currentState:      WAITING_ON_HOST_FOR_QUESTION,
-		currentQuestion:   nil,
-		numOfParticipants: 0,
+		currentState:        WAITING_ON_HOST_FOR_QUESTION,
+		currentQuestion:     nil,
+		numOfParticipants:   0,
 		LiveResultsHandler:  socket.NewClientHandler(),
 		LiveQuestionHandler: socket.NewClientHandler(),
 	}
@@ -62,10 +62,29 @@ func NewRoomInstance() *RoomInstance {
 	return room
 }
 
+func (room *RoomInstance) UnMarshal(bytes []byte) error {
+	rawStructData := &struct {
+		HostName  string      `json:"hostName"`
+		EventType interface{} `json:"eventType"`
+	}{}
+	err := json.Unmarshal(bytes, rawStructData)
+	if err != nil {
+		glog.Error("RoomInstance: Unmarshal failed", err.Error())
+		return err
+	}
+
+	room.HostName = rawStructData.HostName
+	switch rawStructData.EventType {
+	case "LivePolls":
+		room.EventType = LivePolls
+	}
+	return nil
+}
+
 func (room *RoomInstance) SetRoomConfig(bytes []byte) error {
 	tempRoom := new(RoomInstance)
-	if err := json.Unmarshal(bytes, tempRoom); err != nil {
-		glog.Error("RoomInstance: Unmarshal failed")
+	glog.V(2).Infof("SetRoomConfig bytes: ", bytes)
+	if err := tempRoom.UnMarshal(bytes); err != nil {
 		return err
 	}
 	if tempRoom.HostName != "" {
@@ -117,6 +136,8 @@ func (room *RoomInstance) AddLiveQuestion(args []byte) (int, error) {
 	if err != nil {
 		return -1, err
 	}
+	// start accepting the client's responses
+	room.currentState = WAITING_ON_CLIENTS_FOR_RESPONSES
 	return questionId, nil
 }
 
