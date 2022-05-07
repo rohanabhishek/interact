@@ -5,58 +5,40 @@ import React, {
   useCallback,
   useContext,
 } from "react";
-import AudienceLiveResultsView from "./AudienceLiveResultsView";
-import AudienceQuestionView from "./AudienceQuestionView";
-import App from "../App";
 import { UserContext } from "../UserContext.js";
+import QuestionCard from "../Components/AddQuestion/Question";
+import HostLiveResultsView from "./HostLiveResultsView";
 
 const State = {
-  loading: 0,
-  question: 1,
-  results: 2,
-  error: 3,
+  question: 0,
+  results: 1,
+  error: 2,
+  end: 3,
 };
 
-const AudienceView = () => {
+const HostView = () => {
   const { contextDetails } = useContext(UserContext);
   let roomId = contextDetails.roomId;
   let clientId = contextDetails.userId;
-  // let isHost = contextDetails.isHost;
-  // let navigate = useNavigate();
 
   const wsResults = useRef(null);
-  const wsQuestion = useRef(null);
 
-  const [state, setState] = useState(State.loading);
+  const [state, setState] = useState(State.question);
   const [pollData, setPollData] = useState(null);
   const [question, setQuestion] = useState(null);
 
-  const setStatePollData = useCallback((data) => {
+  const setStateQuestion = useCallback((data) => {
     console.log(data);
-    setPollData(data);
+    setQuestion(data);
     setState(State.results);
   }, []);
 
-  useEffect(() => {
-    connect(wsQuestion, roomId, clientId, `liveQuestion`);
-    connect(wsResults, roomId, clientId, `liveResults`);
+  const changeStateToQuestion = useCallback(() => {
+    setState(State.question);
   }, []);
 
   useEffect(() => {
-    if (!wsQuestion.current) return;
-
-    wsQuestion.current.onmessage = (e) => {
-      console.log(e);
-      const message = JSON.parse(e.data);
-      console.log("e", message);
-      if (message.stateChange != null) {
-        setState(message.stateChange);
-      } else {
-        console.log(message.options);
-        setQuestion(message);
-        setState(State.question);
-      }
-    };
+    connect(wsResults, roomId, clientId, `liveResults`);
   }, []);
 
   useEffect(() => {
@@ -67,7 +49,7 @@ const AudienceView = () => {
       const message = JSON.parse(e.data);
       console.log("e", message);
       if (message.stateChange != null) {
-        setState(message.stateChange);
+        // TODO: Handle host separately server-side, not to send this to host
       } else {
         setPollData(message);
       }
@@ -75,24 +57,16 @@ const AudienceView = () => {
   }, []);
 
   return [
-    state === State.loading && <App key={1} />,
-    state === State.question && (
-      <AudienceQuestionView
-        key={2}
-        data={question}
-        loading={state === State.loading}
-        setState={setStatePollData}
-        clientId={clientId}
-        roomId={roomId}
-      />
-    ),
+    state === State.question && <QuestionCard setState={setStateQuestion} />,
     state === State.results && (
-      <AudienceLiveResultsView
+      <HostLiveResultsView
         key={3}
         question={question.question}
         options={question.options}
         count={pollData}
-        loading={state === State.loading}
+        loading={state === 0}
+        roomId={roomId}
+        changeStateToQuestion={changeStateToQuestion}
       />
     ),
   ];
@@ -122,4 +96,4 @@ function connect(ws, roomId, clientId, path) {
   };
 }
 
-export default AudienceView;
+export default HostView;

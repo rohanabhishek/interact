@@ -28,6 +28,7 @@ const (
 type RoomInstance struct {
 	// roomId specifies the id of the room. eg: suffix at url
 	roomId string
+	hostId string
 	// hostName specifies the host of the room
 	HostName  string `json:"hostName"`
 	EventType `json:"eventType"`
@@ -49,9 +50,10 @@ type RoomInstance struct {
 	pMutex sync.Mutex
 }
 
-func NewRoomInstance(roomId string) *RoomInstance {
+func NewRoomInstance(roomId string, hostId string) *RoomInstance {
 	room := &RoomInstance{
 		roomId:                 roomId,
+		hostId:                 hostId,
 		currentState:           WAITING_ON_HOST_FOR_QUESTION,
 		currentQuestion:        nil,
 		numOfParticipants:      0,
@@ -63,6 +65,11 @@ func NewRoomInstance(roomId string) *RoomInstance {
 	return room
 }
 
+func ValidateRoomUnMarshal(bytes []byte) error {
+	tempRoom := new(RoomInstance)
+	return tempRoom.UnMarshal(bytes)
+}
+
 func (room *RoomInstance) UnMarshal(bytes []byte) error {
 	rawStructData := &struct {
 		HostName  string      `json:"hostName"`
@@ -70,32 +77,35 @@ func (room *RoomInstance) UnMarshal(bytes []byte) error {
 	}{}
 	err := json.Unmarshal(bytes, rawStructData)
 	if err != nil {
-		glog.Error("RoomInstance: Unmarshal failed", err.Error())
-		return err
+		errMsg := "roomInstance: Unmarshal failed " + err.Error()
+		glog.Error(errMsg)
+		return errors.New(errMsg)
+	}
+
+	if rawStructData.HostName == "" {
+		errMsg := "empty HostName not allowed"
+		glog.Error(errMsg)
+		return errors.New(errMsg)
 	}
 
 	room.HostName = rawStructData.HostName
 	switch rawStructData.EventType {
 	case "LivePolls":
 		room.EventType = LivePolls
-	}
-	return nil
-}
-
-func (room *RoomInstance) SetRoomConfig(bytes []byte) error {
-	tempRoom := new(RoomInstance)
-	glog.V(2).Infof("SetRoomConfig bytes: ", bytes)
-	if err := tempRoom.UnMarshal(bytes); err != nil {
-		return err
-	}
-	if tempRoom.HostName != "" {
-		return room.SetHostName(tempRoom.HostName)
+	default:
+		err := "EventType not found"
+		glog.Errorln(err)
+		return errors.New(err)
 	}
 	return nil
 }
 
 func (room *RoomInstance) GetRoomId() string {
 	return room.roomId
+}
+
+func (room *RoomInstance) GetHostId() string {
+	return room.hostId
 }
 
 func (room *RoomInstance) SetHostName(hostName string) error {
@@ -120,7 +130,7 @@ func (room *RoomInstance) MoveToNextQuestion() error {
 	return nil
 }
 
-func (room *RoomInstance) AddLiveQuestion(args []byte) (int, error) {
+func (room *RoomInstance) AddLiveQuestion(pollData *data.LivePollData) (int, error) {
 	room.qMutex.Lock()
 	defer room.qMutex.Unlock()
 	if room.currentState != WAITING_ON_HOST_FOR_QUESTION {
@@ -128,12 +138,8 @@ func (room *RoomInstance) AddLiveQuestion(args []byte) (int, error) {
 		return -1, errors.New("current State is not WAITING_ON_HOST_FOR_QUESTION")
 	}
 
+	room.currentQuestion = pollData
 	questionId := len(room.pollsData) + 1
-	var err error
-	room.currentQuestion, err = data.NewLivePollData(args)
-	if err != nil {
-		return -1, err
-	}
 	// start accepting the client's responses
 	room.currentState = WAITING_ON_CLIENTS_FOR_RESPONSES
 	return questionId, nil
@@ -216,6 +222,15 @@ func (room *RoomInstance) SendLiveQuestion(question []byte) {
 	room.LiveQuestionHandler.RegisterAllClients()
 
 	room.LiveQuestionHandler.Broadcast <- question
+}
+
+// Send the state change while MoveToNextQuestion triggered by Host
+func (room *RoomInstance) NotifyClientsForNextQuestion(state []byte) {
+	// Send this to both handles since clients could be on either of them
+	room.LiveQuestionHandler.RegisterAllClients()
+	room.LiveQuestionHandler.Broadcast <- state
+
+	room.LiveResultsHandler.Broadcast <- state
 }
 
 //function to write live responses, it broadcasts message every one sec

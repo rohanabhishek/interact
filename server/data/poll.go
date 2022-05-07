@@ -17,6 +17,10 @@ const (
 	MultiCorrect
 )
 
+const (
+	SingleCorrectQuesTypeStr string = "Single MCQ"
+)
+
 type LivePollData struct {
 	// id denotes the Question Id
 	id           int
@@ -127,7 +131,7 @@ func (pollData *LivePollData) UnMarshal(bytes []byte) error {
 	}
 
 	switch rawStructData.QuestionType {
-	case "Single MCQ":
+	case SingleCorrectQuesTypeStr:
 		pollData.QuestionType = SingleCorrect
 	}
 	return nil
