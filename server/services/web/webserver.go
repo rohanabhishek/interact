@@ -2,14 +2,14 @@
 package web
 
 import (
-	"fmt"
-	room "interact/server/room"
-	rest "interact/server/services/rest"
-	"net/http"
-
+	"encoding/json"
 	"github.com/golang/glog"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	room "interact/server/room"
+	rest "interact/server/services/rest"
+	"io"
+	"net/http"
 )
 
 type WebServer struct {
@@ -29,123 +29,199 @@ func NewWebServer(addr string) *WebServer {
 
 func (server *WebServer) Handlers() {
 	server.serverMux.HandleFunc("/createEvent", func(w http.ResponseWriter, r *http.Request) {
-		// sample way to send the socketInstance, roomInstance
-		roomId, roomInstance, err := server.NewRoomInstance()
-		errMsg := ""
-		if err != nil {
-			errMsg = err.Error()
-		}
-		response := rest.CreateInstanceResponse{
-			RoomId: roomId,
-			Error:  errMsg,
-		}
+		glog.V(2).Info("/createEvent", r)
+		if r.Method == "POST" {
+			bodyBytes, err := io.ReadAll(r.Body)
+			if err != nil {
+				glog.Error("IO Request Body read failed", err)
+				errorResponse := rest.ErrorResponse{Error: err.Error()}
+				rest.SetResponseMetadata(w)
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(errorResponse)
+				return
+			}
 
-		//add to room instnace id mapping
-		server.roomInstances[roomId] = roomInstance
+			err = room.ValidateRoomUnMarshal(bodyBytes)
+			if err != nil {
+				errorResponse := rest.ErrorResponse{Error: err.Error()}
+				rest.SetResponseMetadata(w)
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(errorResponse)
+				return
+			}
 
-		rest.CreateInstanceHandler(w, r, roomInstance, response)
-	}).Methods("POST")
+			// sample way to send the socketInstance, roomInstance
+			roomId, roomInstance, err := server.NewRoomInstance()
+			if err != nil {
+				errorResponse := rest.ErrorResponse{Error: err.Error()}
+				rest.SetResponseMetadata(w)
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(errorResponse)
+				return
+			}
+
+			//add to room instnace id mapping
+			server.roomInstances[roomId] = roomInstance
+
+			err = roomInstance.UnMarshal(bodyBytes)
+			if err != nil {
+				errorResponse := rest.ErrorResponse{Error: err.Error()}
+				rest.SetResponseMetadata(w)
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(errorResponse)
+				return
+			}
+
+			createEventResponse := rest.CreateInstanceResponse{
+				RoomId: roomInstance.GetRoomId(),
+				HostId: roomInstance.GetHostId(),
+			}
+			rest.SetResponseMetadata(w)
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(createEventResponse)
+		} else {
+			rest.SetResponseMetadata(w)
+			w.WriteHeader(http.StatusOK)
+		}
+	}).Methods("POST", "OPTIONS")
 
 	server.serverMux.HandleFunc("/{roomId}/joinEvent", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" {
 
-		room, ok := server.getRoomInstance(w, r)
+			room, ok := server.getRoomInstance(w, r)
 
-		if !ok {
-			glog.Error("Room not found %s", room)
-			return
+			if !ok {
+				glog.Errorf("Room not found %s", mux.Vars(r)["roomId"])
+				return
+			}
+
+			rest.JoinEventHandler(w, r, room)
+		} else {
+			rest.SetResponseMetadata(w)
+			w.WriteHeader(http.StatusOK)
 		}
-
-		rest.JoinEventHandler(w, r, room)
-
-	}).Methods("POST")
+	}).Methods("POST", "OPTIONS")
 
 	// TODO: Add HTTP Method, schemes
 	server.serverMux.HandleFunc("/{roomId}/sendResponse/{clientId}", func(w http.ResponseWriter, r *http.Request) {
-		room, ok := server.getRoomInstance(w, r)
+		if r.Method == "POST" {
 
-		if !ok {
-			glog.Error("Room not found %s", room)
-			return
-		}
+			room, ok := server.getRoomInstance(w, r)
 
-		//TODO: Validate client id
-		clientId := mux.Vars(r)["clientId"]
+			if !ok {
+				glog.Errorf("Room not found %s", mux.Vars(r)["roomId"])
+				return
+			}
 
-		rest.ClientsResponseHandler(w, r, room)
+			//TODO: Validate client id
+			clientId := mux.Vars(r)["clientId"]
 
-		//Register client to LiveResultsSocket
-		success := room.LiveResultsHandler.RegisterClient(clientId)
+			ok = rest.ClientsResponseHandler(w, r, room)
+			if !ok {
+				glog.Error("ClientResponseHandler error")
+				return
+			}
 
-		if !success {
-			glog.Error("Client found but not registered in Results handler how??")
+			//Register client to LiveResultsSocket
+			success := room.LiveResultsHandler.RegisterClient(clientId)
+
+			if !success {
+				glog.Error("Client found but not registered in Results handler how??")
+			}
+		} else {
+			rest.SetResponseMetadata(w)
+			w.WriteHeader(http.StatusOK)
 		}
 	}).Methods("POST", "OPTIONS")
 
 	server.serverMux.HandleFunc("/{roomId}/addLiveQuestion", func(w http.ResponseWriter, r *http.Request) {
-		room, ok := server.getRoomInstance(w, r)
+		if r.Method == "POST" {
 
-		if !ok {
-			glog.Error("Room not found %s", room)
-			return
+			room, ok := server.getRoomInstance(w, r)
+
+			if !ok {
+				glog.Errorf("Room not found %s", mux.Vars(r)["roomId"])
+				return
+			}
+
+			//Register client to LiveResultsSocket
+			success := room.LiveResultsHandler.RegisterClient(room.GetHostId())
+
+			if !success {
+				glog.Error("Client found but not registered in Results handler how??")
+			}
+
+			rest.AddLiveQuestionHandler(w, r, room)
+		} else {
+			rest.SetResponseMetadata(w)
+			w.WriteHeader(http.StatusOK)
 		}
-
-		rest.AddLiveQuestionHandler(w, r, room)
-	}).Methods("POST")
+	}).Methods("POST", "OPTIONS")
 
 	server.serverMux.HandleFunc("/{roomId}/fetchCurrentState", func(w http.ResponseWriter, r *http.Request) {
 		room, ok := server.getRoomInstance(w, r)
 
 		if !ok {
-			glog.Error("Room not found %s", room)
+			glog.Errorf("Room not found %s", mux.Vars(r)["roomId"])
 			return
 		}
 		rest.FetchCurrentStateHandler(w, r, room)
-	}).Methods("GET")
+	}).Methods("GET", "OPTIONS")
 
 	server.serverMux.HandleFunc("/{roomId}/fetchLiveQuestion", func(w http.ResponseWriter, r *http.Request) {
 		room, ok := server.getRoomInstance(w, r)
 
 		if !ok {
-			glog.Error("Room not found %s", room)
+			glog.Errorf("Room not found %s", mux.Vars(r)["roomId"])
 			return
 		}
 		rest.FetchLiveQuestionHandler(w, r, room)
-	}).Methods("GET")
+	}).Methods("GET", "OPTIONS")
 
 	server.serverMux.HandleFunc("/{roomId}/endEvent", func(w http.ResponseWriter, r *http.Request) {
-		room, ok := server.getRoomInstance(w, r)
+		if (r.Method) == "POST" {
 
-		if !ok {
-			glog.Error("Room not found %s", room)
-			return
+			room, ok := server.getRoomInstance(w, r)
+
+			if !ok {
+				glog.Errorf("Room not found %s", mux.Vars(r)["roomId"])
+				return
+			}
+
+			roomId := room.GetRoomId()
+
+			rest.EndEventHandler(w, r, room)
+
+			delete(server.roomInstances, roomId)
+
+		} else {
+			rest.SetResponseMetadata(w)
+			w.WriteHeader(http.StatusOK)
 		}
-
-		roomId := room.GetRoomId()
-
-		rest.EndEventHandler(w, r, room)
-
-		delete(server.roomInstances, roomId)
-
-	}).Methods("POST")
+	}).Methods("POST", "OPTIONS")
 
 	server.serverMux.HandleFunc("/{roomId}/nextLiveQuestion", func(w http.ResponseWriter, r *http.Request) {
-		room, ok := server.getRoomInstance(w, r)
+		if r.Method == "POST" {
+			room, ok := server.getRoomInstance(w, r)
 
-		if !ok {
-			glog.Error("Room not found %s", room)
-			return
+			if !ok {
+				glog.Errorf("Room not found %s", mux.Vars(r)["roomId"])
+				return
+			}
+			rest.MoveToNextQuestionHandler(w, r, room)
+		} else {
+			rest.SetResponseMetadata(w)
+			w.WriteHeader(http.StatusOK)
 		}
-		rest.MoveToNextQuestionHandler(w, r, room)
-	}).Methods("POST")
+	}).Methods("POST", "OPTIONS")
 
 	server.serverMux.HandleFunc("/{roomId}/liveResults/{clientId}", func(w http.ResponseWriter, r *http.Request) {
 		room, ok := server.getRoomInstance(w, r)
 
 		if !ok {
-			glog.Error("Room not found %s", room)
+			glog.Errorf("Room not found %s", mux.Vars(r)["roomId"])
 			return
 		}
-
 		//TODO: Add validation of clients
 
 		clientId := mux.Vars(r)["clientId"]
@@ -188,7 +264,7 @@ func (server *WebServer) Handlers() {
 		room, ok := server.getRoomInstance(w, r)
 
 		if !ok {
-			glog.Error("Room not found %s", room)
+			glog.Errorf("Room not found %s", mux.Vars(r)["roomId"])
 			return
 		}
 
@@ -240,9 +316,10 @@ func (server *WebServer) getRoomInstance(w http.ResponseWriter, r *http.Request)
 
 	if !ok {
 		//Bad Request error
-		w.Header().Set("Content-Type", "application/json")
+		errorResponse := rest.ErrorResponse{Error: "Invalid room id: " + roomId}
+		rest.SetResponseMetadata(w)
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, `{"error": Invalid room id %q}`, roomId)
+		json.NewEncoder(w).Encode(errorResponse)
 		return nil, false
 	}
 
@@ -260,9 +337,11 @@ func (server *WebServer) Run() {
 func (server *WebServer) NewRoomInstance() (string, *room.RoomInstance, error) {
 	roomId := uuid.NewString()
 
-	glog.Info("New room instance is created", roomId)
+	hostId := uuid.NewString()
 
-	return roomId, room.NewRoomInstance(roomId), nil
+	glog.Info("New room instance is created: ", roomId)
+
+	return roomId, room.NewRoomInstance(roomId, hostId), nil
 }
 
 /*

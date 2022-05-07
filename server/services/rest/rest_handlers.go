@@ -2,8 +2,7 @@
 package rest
 
 import (
-	// "fmt"
-
+	"interact/server/data"
 	room "interact/server/room"
 	"net/http"
 
@@ -16,6 +15,13 @@ import (
 	"io"
 )
 
+func SetResponseMetadata(w http.ResponseWriter) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, X-Auth-Token")
+	w.Header().Set("Content-Type", "application/json")
+}
+
 func CreateInstanceHandler(w http.ResponseWriter, r *http.Request, room *room.RoomInstance,
 	roomInstanceResponse CreateInstanceResponse) {
 
@@ -27,38 +33,10 @@ func CreateInstanceHandler(w http.ResponseWriter, r *http.Request, room *room.Ro
 		r.Body    // request body
 		https://pkg.go.dev/net/http#Request
 	*/
-	glog.V(2).Info("CreateInstanceHandler: ", r)
-	glog.V(2).Info("CreateInstanceHandler Body: ", r.Body)
-
 	// Sample usecase to display text on webpage
 	// vars := mux.Vars(r)
 	// fmt.Fprintf(w, "<h1>%s</h1><div>%s</div><div>%v</div>", "Interact",
 	// 	"Application", vars)
-	if roomInstanceResponse.Error != "" {
-		json.NewEncoder(w).Encode(roomInstanceResponse)
-		// resp, _ := json.Marshal(roomInstanceResponse)
-		// w.Write(resp)
-		return
-	}
-
-	//TODO (Rohan): move this validation above and fail the request
-	// Pre-processing of the request body
-	// bodyBytes, err := io.ReadAll(r.Body)
-	// if err != nil {
-	// 	glog.Error("IO Request Body read failed", err)
-	// 	roomInstanceResponse.Error = "IO Request Body read failed" + err.Error()
-	// 	json.NewEncoder(w).Encode(roomInstanceResponse)
-	// 	return
-	// }
-
-	// err = room.SetRoomConfig(bodyBytes)
-	// if err != nil {
-	// 	roomInstanceResponse.Error = err.Error()
-	// }
-
-	// TODO: set the status of the APIs appropriately in case of errors
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(roomInstanceResponse)
 	/*
 		Two ways to write the response
 		1. The currently used method in server\services\rest\rest_handlers.go and decoding in server
@@ -87,11 +65,12 @@ func JoinEventHandler(w http.ResponseWriter, r *http.Request, room *room.RoomIns
 	room.LiveResultsHandler.ClientsMapping[clientId] = nil
 
 	//TODO: Send question depending on the state.
+	SetResponseMetadata(w)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 }
 
-func ClientsResponseHandler(w http.ResponseWriter, r *http.Request, room *room.RoomInstance) {
+func ClientsResponseHandler(w http.ResponseWriter, r *http.Request, room *room.RoomInstance) bool {
 	glog.V(2).Info("ClientsResponseHandler: ", r)
 	var response LiveResultsResponse
 
@@ -104,53 +83,87 @@ func ClientsResponseHandler(w http.ResponseWriter, r *http.Request, room *room.R
 	if err != nil {
 		glog.Error("IO Request Body read failed", err)
 		response.Error = "IO Request Body read failed" + err.Error()
+		SetResponseMetadata(w)
+		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(response)
-		return
+		return false
 	}
 
 	resultsCountMap, err := room.CollectClientResponse(bodyBytes)
 	if err != nil {
 		response.Error = err.Error()
+		SetResponseMetadata(w)
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
+		return false
 	} else {
 		response.LiveResults = resultsCountMap
 	}
-
-	w.WriteHeader(http.StatusOK)
 
 	// json.NewEncoder(w).Encode(response)
 	responseBytes, err := json.Marshal(response)
 	if err != nil {
 		glog.Error(err)
+		response.Error = err.Error()
+		SetResponseMetadata(w)
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
+		return false
 	}
+	w.WriteHeader(http.StatusOK)
 	w.Write(responseBytes)
+	return true
 }
 
 func AddLiveQuestionHandler(w http.ResponseWriter, r *http.Request, room *room.RoomInstance) {
+	// TODO: Add Host Validation with host-id
 	glog.V(2).Info("AddLiveQuestionHandler: ", r)
-	// TODO: Handle the usage of roomId (API body contract) using r
 	var response CreateQuestionResponse
 
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		glog.Error("IO Request Body read failed", err)
 		response.Error = "IO Request Body read failed" + err.Error()
-	} else {
-		questionId, err := room.AddLiveQuestion(bodyBytes)
-		response.QuestionId = questionId
-
-		if err != nil {
-			response.Error = err.Error()
-		}
+		SetResponseMetadata(w)
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+	pollData, err := data.NewLivePollData(bodyBytes)
+	if err != nil {
+		response.Error = err.Error()
+		SetResponseMetadata(w)
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
+		return
 	}
 
+	questionId, err := room.AddLiveQuestion(pollData)
+	if err != nil {
+		response.Error = err.Error()
+		SetResponseMetadata(w)
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+	response.QuestionId = questionId
+
+	// TODO: Add code to send the question to all clients using socket
+	SetResponseMetadata(w)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 
-	//TODO: Check if data sent is correct??
 	//TODO: check if the live response handler should be started instantly after sending the question
-	//TODO(Rohan): add questionID
+	bytesToSend, err := data.ConvertCurrQuestionToBytes(questionId, pollData)
+	if err != nil {
+		glog.Error("Question Conversion to Bytes failed ", err.Error())
+		errResponse := ErrorResponse{
+			Error: err.Error(),
+		}
+		bytesToSend, _ = json.Marshal(errResponse)
+	}
 	go func() {
-		room.SendLiveQuestion(bodyBytes)
+		room.SendLiveQuestion(bytesToSend)
 		room.SendLiveResponse(room.LiveResultsHandler)
 	}()
 }
@@ -161,6 +174,7 @@ func FetchCurrentStateHandler(w http.ResponseWriter, r *http.Request, room *room
 
 	response.State = room.FetchCurrentState()
 
+	SetResponseMetadata(w)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 }
@@ -168,6 +182,9 @@ func FetchCurrentStateHandler(w http.ResponseWriter, r *http.Request, room *room
 func FetchLiveQuestionHandler(w http.ResponseWriter, r *http.Request, room *room.RoomInstance) {
 	glog.V(2).Info("FetchLiveQuestionHandler: ", r)
 	var response FetchLiveQuestionResponse
+
+	SetResponseMetadata(w)
+	w.WriteHeader(http.StatusOK)
 
 	liveQuestion, err := room.FetchLiveQuestion()
 	if err != nil {
@@ -178,11 +195,11 @@ func FetchLiveQuestionHandler(w http.ResponseWriter, r *http.Request, room *room
 		response.Options = liveQuestion.Options
 	}
 
-	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 }
 
 func EndEventHandler(w http.ResponseWriter, r *http.Request, room *room.RoomInstance) {
+	// TODO: Add Host Validation with host-id
 	glog.V(2).Info("EndEventHandler: ", r)
 
 	//close the live results and live question handlers
@@ -196,6 +213,7 @@ func EndEventHandler(w http.ResponseWriter, r *http.Request, room *room.RoomInst
 	if err != nil {
 		response.Error = err.Error()
 	}
+	SetResponseMetadata(w)
 	w.WriteHeader((http.StatusOK))
 	json.NewEncoder(w).Encode(response)
 }
@@ -203,20 +221,36 @@ func EndEventHandler(w http.ResponseWriter, r *http.Request, room *room.RoomInst
 func MoveToNextQuestionHandler(w http.ResponseWriter, r *http.Request, room *room.RoomInstance) {
 	glog.V(2).Info("MoveToNextQuestionHandler: ", r)
 	var response MoveToNextQuestionResponse
+	// TODO: Add Host Validation with host-id
 	err := room.MoveToNextQuestion()
 	if err != nil {
 		response.Error = err.Error()
 	}
 
+	SetResponseMetadata(w)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 
 	go func() {
-		//TODO(Rohan): Notify clients to navigate to next question and use in this below go routine
-
+		bytes, err := NotifyStateChangeBytes(UI_STATE_LOADING)
+		if err != nil {
+			glog.Error("notifyStateChangeBytes error: ", err.Error())
+		}
 		//clear the registered clients map in LiveResultsHandler
+		room.NotifyClientsForNextQuestion(bytes)
 		room.LiveResultsHandler.UnRegisterAllClients()
 	}()
 	//close the response go routine
 	go func() { room.StopSendingLiveResults <- true }()
+}
+
+func NotifyStateChangeBytes(state int) ([]byte, error) {
+	resp := NotifyStateChangeResponse {
+		State: state,
+	}
+	bytes, err := json.Marshal(resp)
+	if err != nil {
+		glog.Error(err.Error())
+	}
+	return bytes, err
 }

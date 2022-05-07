@@ -1,0 +1,30 @@
+.center-display {
+  display:'flex';
+  align-self: center;
+  margin-left: 30%;
+  margin-right: 30%;
+  margin-top: 10%;
+}
+
+.div-style{
+  align-items: center;
+  margin: 20%;
+  display:'flex';
+  flex-wrap: nowrap;
+}
+
+
+.div-style-block {
+  display: block;
+  align-items: center;
+  float: center;
+  margin: 10%;
+}
+
+.div-style-block .fab-block {
+  display: block;
+  margin-left: 10%;
+  margin-top: 5%;
+  margin-bottom: 5%;
+  align-items: center;
+}

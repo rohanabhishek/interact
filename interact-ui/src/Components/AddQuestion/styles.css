@@ -1,0 +1,41 @@
+.box {
+  display: 'flex';
+  align-items: center;
+  max-width: max-content;
+  min-width: 1000px;
+}
+
+.div-style {
+  display:'flex';
+  align-items: center;
+}
+
+.text-child {
+  display: inline-block;
+  width: 100%;
+  margin-right: 5%;
+}
+
+.button-child {
+  display: inline-block;
+  width: full;
+}
+
+.center-display {
+  display:'flex';
+  align-self: center;
+  margin-left: 25%;
+  margin-right: 25%;
+  margin-top: 10%;
+}
+
+.fab {
+  float: right;
+  align-items: center;
+  margin-right: 1%;
+  padding: 16px
+}
+
+.textfieldWidth {
+  width: 80%;
+}
