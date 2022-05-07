@@ -144,17 +144,39 @@ func FetchLiveQuestionHandler(w http.ResponseWriter, r *http.Request, room *room
 	glog.V(2).Info("FetchLiveQuestionHandler: ", r)
 	var response FetchLiveQuestionResponse
 
-	liveQuestion, err := room.FetchLiveQuestion()
-	if err != nil {
-		response.Error = err.Error()
-	} else {
-		response.Owner = liveQuestion.Owner
-		response.Question = liveQuestion.Question
-		response.Options = liveQuestion.Options
-	}
+	owner := "IAmTheHost"
+	question := "What is the type of question?"
+	option1 := "MCQ"
+	option2 := "Word"
+	option3 := "Single"
+	response.Owner = &owner
+	response.Question = &question
+	response.Options = []*string{&option1, &option2, &option3}
+	response.Error = "React causing issue"
 
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+	// responseBytes, err := json.Marshal(response)
+	// if err != nil {
+	// 	glog.Errorf("Marshal failed, %v", err.Error())
+	// }
+	// w.Write(responseBytes)
 	json.NewEncoder(w).Encode(response)
+
+	// liveQuestion, err := room.FetchLiveQuestion()
+	// if err != nil {
+	// 	response.Error = err.Error()
+	// } else {
+	// 	response.Owner = liveQuestion.Owner
+	// 	response.Question = liveQuestion.Question
+	// 	response.Options = liveQuestion.Options
+	// }
+
+	// w.WriteHeader(http.StatusOK)
+	// json.NewEncoder(w).Encode(response)
 }
 
 func EndEventHandler(w http.ResponseWriter, r *http.Request, room *room.RoomInstance) {

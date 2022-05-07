@@ -62,7 +62,7 @@ func (server *WebServer) Handlers() {
 
 	server.serverMux.HandleFunc("/{roomId}/fetchLiveQuestion", func(w http.ResponseWriter, r *http.Request) {
 		rest.FetchLiveQuestionHandler(w, r, server.roomInstance)
-	}).Methods("GET")
+	}).Methods("GET", "OPTIONS")
 
 	server.serverMux.HandleFunc("/{roomId}/endEvent", func(w http.ResponseWriter, r *http.Request) {
 		rest.EndEventHandler(w, r, server.roomInstance)
@@ -106,7 +106,7 @@ func (server *WebServer) Run() {
 			select {
 			case <-ticker.C:
 				if server.roomInstance != nil {
-					server.roomInstance.LiveQuestionHandler.Broadcast <- []byte(strq)
+					server.roomInstance.LiveQuestionHandler.Broadcast <- []byte(str)
 				}
 			}
 		}
