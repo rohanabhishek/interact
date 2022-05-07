@@ -1,15 +1,12 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
-import App from './App';
+import AudienceView from './Containers/AudienceView';
 import reportWebVitals from './reportWebVitals';
-import AudienceView from './Containers/AudienceView'
-import AudienceLiveResultsView from './Containers/AudienceLiveResultsView'
 
 ReactDOM.render(
   <React.StrictMode>
-    {/* <AudienceView /> */}
-    <AudienceLiveResultsView/>
+    <AudienceView roomId={'default-room-id'} clientId={1}/>
   </React.StrictMode>,
   document.getElementById('root')
 );

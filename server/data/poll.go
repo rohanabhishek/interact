@@ -4,8 +4,9 @@ package data
 import (
 	"encoding/json"
 	"errors"
-	"github.com/golang/glog"
 	"sync"
+
+	"github.com/golang/glog"
 )
 
 type QuestionType int
@@ -155,11 +156,13 @@ func (pollData *LivePollData) CollectClientResponse(apiResponse []byte) (map[str
 	return pollData.resultsCountMap, nil
 }
 
-func (pollData *LivePollData) getResponseStats() map[string]int {
+func (pollData *LivePollData) GetResponseStats() map[string]int {
 	// TODO: Use utils.go and convert the response as per the UI's
 	// frontend handler requirement which will be sent through the socket IO
 	// We might need to send the Answer also, so as to display on UI
 	pollData.mutex.RLock()
 	defer pollData.mutex.RUnlock()
+
+	//TODO: Handle null pointer exception here...
 	return pollData.resultsCountMap
 }

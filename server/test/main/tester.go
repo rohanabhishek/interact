@@ -20,7 +20,7 @@ func main() {
 	flag.Parse()
 
 	// roomInstance Unmarshal
-	tempRoom := room.NewRoomInstance()
+	tempRoom := room.NewRoomInstance("default-id")
 	reqBytes := []byte(test.DefaultCreateInstanceParams)
 	glog.Infof("reqBytes %v", reqBytes)
 	err := tempRoom.UnMarshal(reqBytes)

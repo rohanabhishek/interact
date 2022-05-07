@@ -11,21 +11,25 @@ import (
 
 var upgrader = websocket.Upgrader{}
 
-func ServeWebsocket(ch *ClientHandler, w http.ResponseWriter, r *http.Request) {
+func (ch *ClientHandler) ServeWebsocket(w http.ResponseWriter, r *http.Request, clientId string) (c *Client, e error) {
 
 	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
-		return
+		return nil, err
 	}
 
 	log.Println("Client connected")
 
-	client := &Client{ClientHandler: ch, conn: conn, send: make(chan []byte, 256)}
-	client.ClientHandler.register <- client
+	client := &Client{clientId: clientId, ClientHandler: ch, conn: conn, send: make(chan []byte, 256), Close: make(chan bool)}
+
+	//TODO: Remove here and handle via clientId and socket mapping
+	//client.ClientHandler.register <- client
 
 	// Allow collection of memory referenced by the caller by doing all work in
 	// new goroutines.
 	go client.writeLiveResults()
+
+	return client, nil
 }

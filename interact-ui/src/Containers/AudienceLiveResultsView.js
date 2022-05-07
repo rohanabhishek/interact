@@ -1,27 +1,15 @@
 import { useEffect, useState, useRef } from "react";
 import LiveResultsComponent from "../Components/LiveResultsComponent";
 
-const AudienceLiveResultsView = ()=>{
+const AudienceLiveResultsView = ({ws})=>{
     // let question = "Who is the Captain of Indian Cricket Team";
     // let results = [{"option": "kohli","percentage": 20}, {"option": "Rohit","percentage": 50}, {"option": "Pant","percentage": 30}]
     
     //TODO: Loading and error handling
-    const ws = useRef(null);
+    //const ws = useRef(null);
 
     const[data, setData] = useState(null)
     const[loading, setLoading] = useState(true)
-
-    useEffect(() => {
-        ws.current = new WebSocket("ws://localhost:8080/socket");
-        ws.current.onopen = () => console.log("ws opened");
-        ws.current.onclose = () => console.log("ws closed");
-
-        const wsCurrent = ws.current;
-
-        return () => {
-            wsCurrent.close();
-        };
-    }, []);
 
     useEffect(() => {
         if (!ws.current) return;
