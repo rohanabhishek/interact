@@ -23,16 +23,16 @@ const MultipleChoiceQuestionCard = ({question, choices, selected, setSelected}) 
             <CardHeader title={question} sx={{alignSelf: 'center'}} />
                 <Box sx={{ display: 'flex', flexDirection: 'column', alignItems:'self-start' }}>
                     {choices.map((choice,index) =>{
-                       return( 
+                       return(
                             <Button
                                 sx={{width: 300}}
                                 variant= {(index == selected)? "contained" : "text"}
-                                onClick={(e)=>{onClickHandler(index,selected,setSelected,e)}}                               
-                            > 
-                                <Typography>{choice}</Typography>                             
+                                onClick={(e)=>{onClickHandler(index,selected,setSelected,e)}}
+                            >
+                                <Typography>{choice}</Typography>
                             </Button>
-                    )})}                             
-                </Box>            
+                    )})}
+                </Box>
         </Card>
     )
 }

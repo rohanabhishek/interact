@@ -3,14 +3,25 @@ import ReactDOM from 'react-dom';
 import './index.css';
 import AudienceView from './Containers/AudienceView';
 import reportWebVitals from './reportWebVitals';
+import QuestionCard from './Components/AddQuestion/Question'
+import StartEventPage from './Containers/StartEventPage/StartEventPage';
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import {UserContextProvider} from "./UserContext.js";
+// const roomId = "3aedf06b-9170-4e99-adc1-10d6126b756a"
+// const clientId = "06cefd8f-fba7-4eca-9059-4dc90fb071d5"
 
-const roomId = "3aedf06b-9170-4e99-adc1-10d6126b756a"
-const clientId = "06cefd8f-fba7-4eca-9059-4dc90fb071d5"
-
+// Currently in case of client, context stores the roomId, clientId
+// in case of Host, context stores roomId
 ReactDOM.render(
-  <React.StrictMode>
-    <AudienceView roomId={roomId} clientId={clientId}/>
-  </React.StrictMode>,
+  <UserContextProvider>
+  <BrowserRouter>
+    <Routes>
+      <Route path="/" element={<StartEventPage />} />
+        <Route path="AddQuestion" element={<QuestionCard />} />
+        <Route path="AudienceView" element={<AudienceView />} />
+    </Routes>
+  </BrowserRouter>
+  </UserContextProvider>,
   document.getElementById('root')
 );
 
