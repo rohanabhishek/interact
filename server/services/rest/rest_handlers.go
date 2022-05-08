@@ -41,6 +41,7 @@ func CreateInstanceHandler(w http.ResponseWriter, r *http.Request, room *room.Ro
 		return
 	}
 
+	//TODO (Rohan): move this validation above and fail the request
 	// Pre-processing of the request body
 	// bodyBytes, err := io.ReadAll(r.Body)
 	// if err != nil {
@@ -141,8 +142,8 @@ func AddLiveQuestionHandler(w http.ResponseWriter, r *http.Request, room *room.R
 	json.NewEncoder(w).Encode(response)
 
 	//TODO: Check if data sent is correct??
-	//TODO: check if the process is correct
-	//Start sending go routine after 5 secs
+	//TODO: check if the live response handler should be started instantly after sending the question
+	//TODO(Rohan): add questionID
 	go func() {
 		room.SendLiveQuestion(bodyBytes)
 		room.SendLiveResponse(room.LiveResultsHandler)
@@ -205,11 +206,12 @@ func MoveToNextQuestionHandler(w http.ResponseWriter, r *http.Request, room *roo
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 
-	//TODO: Notify clients to navigate to next question
+	go func() {
+		//TODO(Rohan): Notify clients to navigate to next question and use in this below go routine
 
-	//clear the registered clients map in LiveResultsHandler
-	go room.LiveResultsHandler.UnRegisterAllClients()
-
+		//clear the registered clients map in LiveResultsHandler
+		room.LiveResultsHandler.UnRegisterAllClients()
+	}()
 	//close the response go routine
 	go func() { room.StopSendingLiveResults <- true }()
 }
