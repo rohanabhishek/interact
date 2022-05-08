@@ -51,6 +51,7 @@ func (server *WebServer) Handlers() {
 		room, ok := server.getRoomInstance(w, r)
 
 		if !ok {
+			glog.Error("Room not found %s", room)
 			return
 		}
 
@@ -63,6 +64,7 @@ func (server *WebServer) Handlers() {
 		room, ok := server.getRoomInstance(w, r)
 
 		if !ok {
+			glog.Error("Room not found %s", room)
 			return
 		}
 
@@ -83,6 +85,7 @@ func (server *WebServer) Handlers() {
 		room, ok := server.getRoomInstance(w, r)
 
 		if !ok {
+			glog.Error("Room not found %s", room)
 			return
 		}
 
@@ -93,6 +96,7 @@ func (server *WebServer) Handlers() {
 		room, ok := server.getRoomInstance(w, r)
 
 		if !ok {
+			glog.Error("Room not found %s", room)
 			return
 		}
 		rest.FetchCurrentStateHandler(w, r, room)
@@ -102,6 +106,7 @@ func (server *WebServer) Handlers() {
 		room, ok := server.getRoomInstance(w, r)
 
 		if !ok {
+			glog.Error("Room not found %s", room)
 			return
 		}
 		rest.FetchLiveQuestionHandler(w, r, room)
@@ -111,6 +116,7 @@ func (server *WebServer) Handlers() {
 		room, ok := server.getRoomInstance(w, r)
 
 		if !ok {
+			glog.Error("Room not found %s", room)
 			return
 		}
 
@@ -126,6 +132,7 @@ func (server *WebServer) Handlers() {
 		room, ok := server.getRoomInstance(w, r)
 
 		if !ok {
+			glog.Error("Room not found %s", room)
 			return
 		}
 		rest.MoveToNextQuestionHandler(w, r, room)
@@ -135,6 +142,7 @@ func (server *WebServer) Handlers() {
 		room, ok := server.getRoomInstance(w, r)
 
 		if !ok {
+			glog.Error("Room not found %s", room)
 			return
 		}
 
@@ -180,6 +188,7 @@ func (server *WebServer) Handlers() {
 		room, ok := server.getRoomInstance(w, r)
 
 		if !ok {
+			glog.Error("Room not found %s", room)
 			return
 		}
 
@@ -216,12 +225,6 @@ func (server *WebServer) Handlers() {
 				prevClient = nil
 			}()
 		}
-		// else {
-		// 	//If client is not present which means he joins first time, so register him
-		// 	go func() {
-		// 		room.LiveQuestionHandler.Register <- client
-		// 	}()
-		// }
 
 		//Replace or Add new client
 		room.LiveQuestionHandler.ClientsMapping[clientId] = client

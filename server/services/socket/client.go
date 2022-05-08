@@ -21,7 +21,7 @@ type Client struct {
 	Close chan bool
 }
 
-func (c *Client) writeLiveResults() {
+func (c *Client) writeClientResponse() {
 	defer func() {
 		c.conn.Close()
 	}()

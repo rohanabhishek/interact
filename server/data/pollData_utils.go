@@ -4,9 +4,6 @@ import (
 	"errors"
 )
 
-//use this to close any go routines
-type CloseChannel chan bool
-
 func GetAnswerAsString(response ResponseData,
 	questionType QuestionType) (string, error) {
 	switch questionType {

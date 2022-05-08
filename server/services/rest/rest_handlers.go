@@ -144,18 +144,9 @@ func AddLiveQuestionHandler(w http.ResponseWriter, r *http.Request, room *room.R
 	//TODO: check if the process is correct
 	//Start sending go routine after 5 secs
 	go func() {
-		SendLiveQuestion(room, bodyBytes)
+		room.SendLiveQuestion(bodyBytes)
 		room.SendLiveResponse(room.LiveResultsHandler)
 	}()
-}
-
-//TODO: See if we need to send question multiple times??
-func SendLiveQuestion(room *room.RoomInstance, question []byte) {
-
-	//first register all the available clients
-	room.LiveQuestionHandler.RegisterAllClients()
-
-	room.LiveQuestionHandler.Broadcast <- question
 }
 
 func FetchCurrentStateHandler(w http.ResponseWriter, r *http.Request, room *room.RoomInstance) {

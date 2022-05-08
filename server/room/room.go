@@ -209,6 +209,15 @@ MoveToNextQuestion is being done,
 		in other question.
 */
 
+//TODO: See if we need to send question multiple times??
+func (room *RoomInstance) SendLiveQuestion(question []byte) {
+
+	//first register all the available clients
+	room.LiveQuestionHandler.RegisterAllClients()
+
+	room.LiveQuestionHandler.Broadcast <- question
+}
+
 //function to write live responses, it broadcasts message every one sec
 func (room *RoomInstance) SendLiveResponse(ch *socket.ClientHandler) {
 	ticker := time.NewTicker(1 * time.Second)
@@ -223,7 +232,7 @@ func (room *RoomInstance) SendLiveResponse(ch *socket.ClientHandler) {
 		select {
 		case <-ticker.C:
 			//get the live data
-			if room.currentQuestion == nil {
+			if room.currentState != WAITING_ON_CLIENTS_FOR_RESPONSES {
 				//We moved to the next question
 				glog.Info("Stopped sending live results")
 				return
