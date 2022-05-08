@@ -6,7 +6,6 @@ import (
 
 	room "interact/server/room"
 	"net/http"
-	"time"
 
 	"encoding/json"
 
@@ -111,7 +110,6 @@ func ClientsResponseHandler(w http.ResponseWriter, r *http.Request, room *room.R
 		response.LiveResults = resultsCountMap
 	}
 
-	// TODO: Add this client to socket, who can view the results
 	w.WriteHeader(http.StatusOK)
 	// json.NewEncoder(w).Encode(response)
 	responseBytes, err := json.Marshal(response)
@@ -138,17 +136,15 @@ func AddLiveQuestionHandler(w http.ResponseWriter, r *http.Request, room *room.R
 			response.Error = err.Error()
 		}
 	}
-	// TODO: Add code to send the question to all clients using socket
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 
 	//TODO: Check if data sent is correct??
-	go SendLiveQuestion(room, bodyBytes)
-
-	//TODO: check if it is correct
+	//TODO: check if the process is correct
 	//Start sending go routine after 5 secs
 	go func() {
-		time.Sleep(5)
+		SendLiveQuestion(room, bodyBytes)
 		room.SendLiveResponse(room.LiveResultsHandler)
 	}()
 }
@@ -218,7 +214,7 @@ func MoveToNextQuestionHandler(w http.ResponseWriter, r *http.Request, room *roo
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 
-	//TODO: Notify clients to navigate to next question and
+	//TODO: Notify clients to navigate to next question
 
 	//clear the registered clients map in LiveResultsHandler
 	go room.LiveResultsHandler.UnRegisterAllClients()

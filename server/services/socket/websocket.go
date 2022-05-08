@@ -24,9 +24,6 @@ func (ch *ClientHandler) ServeWebsocket(w http.ResponseWriter, r *http.Request, 
 
 	client := &Client{clientId: clientId, ClientHandler: ch, conn: conn, send: make(chan []byte, 256), Close: make(chan bool)}
 
-	//TODO: Remove here and handle via clientId and socket mapping
-	//client.ClientHandler.register <- client
-
 	// Allow collection of memory referenced by the caller by doing all work in
 	// new goroutines.
 	go client.writeLiveResults()

@@ -213,6 +213,8 @@ MoveToNextQuestion is being done,
 func (room *RoomInstance) SendLiveResponse(ch *socket.ClientHandler) {
 	ticker := time.NewTicker(1 * time.Second)
 
+	//Send based on the revision, dont send duplicate data.
+	resLength := 0
 	defer func() {
 		ticker.Stop()
 	}()
@@ -221,14 +223,28 @@ func (room *RoomInstance) SendLiveResponse(ch *socket.ClientHandler) {
 		select {
 		case <-ticker.C:
 			//get the live data
-			data := room.currentQuestion.GetResponseStats()
-			responseBytes, err := json.Marshal(data)
+			if room.currentQuestion == nil {
+				//We moved to the next question
+				glog.Info("Stopped sending live results")
+				return
+			}
+			data, len := room.currentQuestion.GetResponseStats()
 
-			if err != nil {
-				glog.Error(err)
+			//only send if current length is greater
+			if len > resLength {
+				responseBytes, err := json.Marshal(data)
+
+				if err != nil {
+					glog.Error(err)
+				}
+
+				ch.Broadcast <- responseBytes
+
+				resLength = len
+			} else if len < resLength {
+				glog.Error("How responses length decreased??")
 			}
 
-			ch.Broadcast <- responseBytes
 		case <-room.StopSendingLiveResults:
 			return
 		}
