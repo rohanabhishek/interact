@@ -3,11 +3,15 @@ package rest
 
 import (
 	// "fmt"
+
 	room "interact/server/room"
 	"net/http"
 
 	"encoding/json"
+
 	"github.com/golang/glog"
+	"github.com/google/uuid"
+
 	// "github.com/gorilla/mux"
 	"io"
 )
@@ -37,19 +41,20 @@ func CreateInstanceHandler(w http.ResponseWriter, r *http.Request, room *room.Ro
 		return
 	}
 
+	//TODO (Rohan): move this validation above and fail the request
 	// Pre-processing of the request body
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		glog.Error("IO Request Body read failed", err)
-		roomInstanceResponse.Error = "IO Request Body read failed" + err.Error()
-		json.NewEncoder(w).Encode(roomInstanceResponse)
-		return
-	}
+	// bodyBytes, err := io.ReadAll(r.Body)
+	// if err != nil {
+	// 	glog.Error("IO Request Body read failed", err)
+	// 	roomInstanceResponse.Error = "IO Request Body read failed" + err.Error()
+	// 	json.NewEncoder(w).Encode(roomInstanceResponse)
+	// 	return
+	// }
 
-	err = room.SetRoomConfig(bodyBytes)
-	if err != nil {
-		roomInstanceResponse.Error = err.Error()
-	}
+	// err = room.SetRoomConfig(bodyBytes)
+	// if err != nil {
+	// 	roomInstanceResponse.Error = err.Error()
+	// }
 
 	// TODO: set the status of the APIs appropriately in case of errors
 	w.WriteHeader(http.StatusOK)
@@ -72,8 +77,16 @@ func CreateInstanceHandler(w http.ResponseWriter, r *http.Request, room *room.Ro
 func JoinEventHandler(w http.ResponseWriter, r *http.Request, room *room.RoomInstance) {
 	glog.V(2).Info("JoinEventHandler: ", r)
 	var response JoinEventResponse
-	response.ClientId = room.GetNewClientId()
 
+	clientId := uuid.NewString()
+
+	response.ClientId = clientId
+
+	//empty socket, socket will be initialized in socket handlers
+	room.LiveQuestionHandler.ClientsMapping[clientId] = nil
+	room.LiveResultsHandler.ClientsMapping[clientId] = nil
+
+	//TODO: Send question depending on the state.
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 }
@@ -98,7 +111,6 @@ func ClientsResponseHandler(w http.ResponseWriter, r *http.Request, room *room.R
 		response.LiveResults = resultsCountMap
 	}
 
-	// TODO: Add this client to socket, who can view the results
 	w.WriteHeader(http.StatusOK)
 	// json.NewEncoder(w).Encode(response)
 	responseBytes, err := json.Marshal(response)
@@ -125,9 +137,17 @@ func AddLiveQuestionHandler(w http.ResponseWriter, r *http.Request, room *room.R
 			response.Error = err.Error()
 		}
 	}
-	// TODO: Add code to send the question to all clients using socket
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
+
+	//TODO: Check if data sent is correct??
+	//TODO: check if the live response handler should be started instantly after sending the question
+	//TODO(Rohan): add questionID
+	go func() {
+		room.SendLiveQuestion(bodyBytes)
+		room.SendLiveResponse(room.LiveResultsHandler)
+	}()
 }
 
 func FetchCurrentStateHandler(w http.ResponseWriter, r *http.Request, room *room.RoomInstance) {
@@ -158,7 +178,14 @@ func FetchLiveQuestionHandler(w http.ResponseWriter, r *http.Request, room *room
 }
 
 func EndEventHandler(w http.ResponseWriter, r *http.Request, room *room.RoomInstance) {
-	glog.V(2).Info("MoveToNextQuestionHandler: ", r)
+	glog.V(2).Info("EndEventHandler: ", r)
+
+	//close the live results and live question handlers
+	go func() {
+		room.LiveResultsHandler.Close <- true
+		room.LiveQuestionHandler.Close <- true
+	}()
+
 	var response EndEventResponse
 	err := room.EndEvent()
 	if err != nil {
@@ -178,4 +205,13 @@ func MoveToNextQuestionHandler(w http.ResponseWriter, r *http.Request, room *roo
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
+
+	go func() {
+		//TODO(Rohan): Notify clients to navigate to next question and use in this below go routine
+
+		//clear the registered clients map in LiveResultsHandler
+		room.LiveResultsHandler.UnRegisterAllClients()
+	}()
+	//close the response go routine
+	go func() { room.StopSendingLiveResults <- true }()
 }

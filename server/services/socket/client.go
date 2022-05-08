@@ -5,6 +5,10 @@ import (
 )
 
 type Client struct {
+
+	//id of the client
+	clientId string
+
 	ClientHandler *ClientHandler
 
 	// The websocket connection.
@@ -12,9 +16,12 @@ type Client struct {
 
 	// Buffered channel of outbound messages.
 	send chan []byte
+
+	//close the client
+	Close chan bool
 }
 
-func (c *Client) writeLiveResults() {
+func (c *Client) writeClientResponse() {
 	defer func() {
 		c.conn.Close()
 	}()
@@ -27,9 +34,10 @@ func (c *Client) writeLiveResults() {
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
-
 			//Since we make sure only one message is sent, else we need to handle multiple messages
 			c.conn.WriteMessage(1, message)
+		case <-c.Close:
+			return
 		}
 	}
 }

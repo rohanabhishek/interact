@@ -1,7 +1,9 @@
 // This file consists of the API responses format
 package rest
 
-import "interact/server/room"
+import (
+	"interact/server/room"
+)
 
 type CreateInstanceResponse struct {
 	RoomId string `json:"roomId"`
@@ -14,7 +16,7 @@ type CreateQuestionResponse struct {
 }
 
 type JoinEventResponse struct {
-	ClientId int    `json:"clientId"`
+	ClientId string `json:"clientId"`
 	Error    string `json:"error,omitempty"`
 }
 

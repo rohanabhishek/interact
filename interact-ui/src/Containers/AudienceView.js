@@ -1,63 +1,52 @@
-import React, { useState, useEffect } from 'react';
-import MultipleChoiceQuestionCard from '../Components/MultipleChoiceQuestionCard'
-import {Button, Box} from '@mui/material'
+import React, { useState, useEffect, useRef } from 'react';
+import AudienceLiveResultsView from './AudienceLiveResultsView';
+import AudienceQuestionView from './AudienceQuestionView';
+import App from '../App';
 
-const AudienceView = () => {
-    const [selected,setSelected] = useState(-1);
+const State = {
+    loading : 0,
+    question : 1,
+    results : 2
+}
 
-    //TODO: need to pass this as a prop
-    const clientId = 1;
+const  AudienceView = ({roomId,clientId})=>{
+    
+    const liveQuestionSocket = useRef(null);
+    const liveResultsSocket = useRef(null);
 
-    let question = "Who is the Captain of Indian Cricket Team";
-    let answers = ["Kohli", "Rohit","Pant"];
-
-    const [data, setData] = useState(null)
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState(null)
+    const [loading, setLoading] = useState(false)
+    const [state, setState] = useState(State.loading)
 
     useEffect(()=>{
-        fetch(`/fetchLiveQuestion/${clientId}`)
-        .then((response) => {
-            if(!response.ok){
-                throw new Error(
-                    `The status is ${response.status}`
-                )
-            }
-            return response.json
-        })
-        .then((data)=> {
-            setData(data)
-            setLoading(false)
-        })
-        .catch((error)=>{
-            setError(error)
-        })        
+        connect(`${roomId}/liveResults`, liveResultsSocket)
+        connect(`${roomId}/liveQuestion`, liveQuestionSocket)
     },[])
 
     return(
-        //TODO: handle loading and error states.
-
         <div>
-        <MultipleChoiceQuestionCard 
-            question={data.question} 
-            choices={data.answers}
-            selected = {selected}
-            setSelected = {setSelected}
-        />
-        <Box textAlign='center'>
-            <Button
-                color='primary'
-                size='large'
-                type='submit'
-                variant='contained'
-            >
-                Submit
-            </Button>
-        </Box>
-
+            <App/>
+            {state == State.question} && <AudienceQuestionView ws={{liveQuestionSocket}}/>
+            {state == State.results} && <AudienceLiveResultsView ws = {{liveResultsSocket}}/>
         </div>
-    );
-
+    )
 }
 
-export default AudienceView;
+function connect(socket, ws) {
+    ws.current = new WebSocket(`ws://localhost:8080/${socket}`);
+
+    console.log(ws)
+ 
+   ws.current.onclose = function(e) {
+     console.log('Socket is closed. Reconnect will be attempted in 1 second.', e.reason);
+     setTimeout(function() {
+       connect(socket,ws);
+     }, 1000);
+   };
+ 
+   ws.current.onerror = function(err) {
+     console.error('Socket encountered error: ', err.message, 'Closing socket');
+     ws.current.close();
+   };
+ }
+
+export default AudienceView

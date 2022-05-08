@@ -5,21 +5,60 @@ type ClientHandler struct {
 	clients map[*Client]bool
 
 	// Register requests from the clients.
-	register chan *Client
+	Register chan *Client
 
 	// Unregister requests from clients.
-	unregister chan *Client
+	Unregister chan *Client
 
 	//incoming messages from clients
 	Broadcast chan []byte
+
+	//close the handler
+	Close chan bool
+
+	//All clients mapping with thier clientId
+	ClientsMapping map[string]*Client
+}
+
+func (ch *ClientHandler) IsClientRegistered(c *Client) bool {
+	if val, err := ch.clients[c]; !err {
+		return val
+	}
+	return false
+}
+
+func (ch *ClientHandler) RegisterClient(id string) bool {
+	if client, ok := ch.ClientsMapping[id]; ok {
+		if client != nil {
+			ch.clients[client] = true
+			return true
+		}
+	}
+	return false
+}
+
+func (ch *ClientHandler) RegisterAllClients() {
+	for _, client := range ch.ClientsMapping {
+		if client != nil {
+			ch.clients[client] = true
+		}
+	}
+}
+
+func (ch *ClientHandler) UnRegisterAllClients() {
+	for k := range ch.clients {
+		delete(ch.clients, k)
+	}
 }
 
 func NewClientHandler() *ClientHandler {
 	ch := &ClientHandler{
-		Broadcast:  make(chan []byte),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		clients:    make(map[*Client]bool),
+		Broadcast:      make(chan []byte, 256),
+		Register:       make(chan *Client, 256),
+		Unregister:     make(chan *Client, 256),
+		clients:        make(map[*Client]bool),
+		Close:          make(chan bool),
+		ClientsMapping: make(map[string]*Client),
 	}
 
 	//run client handler
@@ -33,11 +72,11 @@ func (ch *ClientHandler) run() {
 		select {
 
 		//register the client
-		case client := <-ch.register:
+		case client := <-ch.Register:
 			ch.clients[client] = true
 
 		//unregsiter the client
-		case client := <-ch.unregister:
+		case client := <-ch.Unregister:
 			if _, ok := ch.clients[client]; ok {
 				delete(ch.clients, client)
 				close(client.send)
@@ -48,6 +87,15 @@ func (ch *ClientHandler) run() {
 			for client := range ch.clients {
 				select {
 				case client.send <- message:
+				default:
+					close(client.send)
+					delete(ch.clients, client)
+				}
+			}
+		case <-ch.Close:
+			for client := range ch.clients {
+				select {
+				case client.Close <- true:
 				default:
 					close(client.send)
 					delete(ch.clients, client)

@@ -4,8 +4,9 @@ package data
 import (
 	"encoding/json"
 	"errors"
-	"github.com/golang/glog"
 	"sync"
+
+	"github.com/golang/glog"
 )
 
 type QuestionType int
@@ -41,13 +42,13 @@ type ResponseData struct {
 }
 
 type ClientResponse struct {
-	ClientId     int `json:"clientId"`
+	ClientId     string `json:"clientId"`
 	ResponseData `json:"responseData"`
 }
 
 func (clientResponse *ClientResponse) UnMarshal(bytes []byte, qtype QuestionType) error {
 	rawStructData := &struct {
-		ClientId int `json:"clientId"`
+		ClientId string `json:"clientId"`
 		// Accepting the response as string so that we can handle the wordAnswers as well.
 		// Use the following syntax for mcq answers as A/ABC/1/123
 		Response string `json:"response"`
@@ -155,11 +156,11 @@ func (pollData *LivePollData) CollectClientResponse(apiResponse []byte) (map[str
 	return pollData.resultsCountMap, nil
 }
 
-func (pollData *LivePollData) getResponseStats() map[string]int {
+func (pollData *LivePollData) GetResponseStats() (map[string]int, int) {
 	// TODO: Use utils.go and convert the response as per the UI's
 	// frontend handler requirement which will be sent through the socket IO
 	// We might need to send the Answer also, so as to display on UI
 	pollData.mutex.RLock()
 	defer pollData.mutex.RUnlock()
-	return pollData.resultsCountMap
+	return pollData.resultsCountMap, len(pollData.responses)
 }

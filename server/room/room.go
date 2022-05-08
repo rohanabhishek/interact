@@ -7,6 +7,7 @@ import (
 	data "interact/server/data"
 	socket "interact/server/services/socket"
 	"sync"
+	"time"
 
 	"github.com/golang/glog"
 )
@@ -37,26 +38,26 @@ type RoomInstance struct {
 	// it is added to the pollsData after the question is Done ie., the host
 	// moves to the next question OR stops collecting the responses for the
 	// question OR ends the event
-	currentQuestion     *data.LivePollData
-	numOfParticipants   int
-	LiveResultsHandler  *socket.ClientHandler
-	LiveQuestionHandler *socket.ClientHandler
+	currentQuestion        *data.LivePollData
+	numOfParticipants      int
+	LiveResultsHandler     *socket.ClientHandler
+	LiveQuestionHandler    *socket.ClientHandler
+	StopSendingLiveResults chan bool
 	// qMutex handles sync for questions data
-	// pMutex handles sync for participants count
 	qMutex sync.RWMutex
+	// pMutex handles sync for participants count
 	pMutex sync.Mutex
 }
 
-const defaultId = "default-room-id"
-
-func NewRoomInstance() *RoomInstance {
+func NewRoomInstance(roomId string) *RoomInstance {
 	room := &RoomInstance{
-		roomId:              defaultId,
-		currentState:        WAITING_ON_HOST_FOR_QUESTION,
-		currentQuestion:     nil,
-		numOfParticipants:   0,
-		LiveResultsHandler:  socket.NewClientHandler(),
-		LiveQuestionHandler: socket.NewClientHandler(),
+		roomId:                 roomId,
+		currentState:           WAITING_ON_HOST_FOR_QUESTION,
+		currentQuestion:        nil,
+		numOfParticipants:      0,
+		LiveResultsHandler:     socket.NewClientHandler(),
+		LiveQuestionHandler:    socket.NewClientHandler(),
+		StopSendingLiveResults: make(chan bool),
 	}
 
 	return room
@@ -94,9 +95,6 @@ func (room *RoomInstance) SetRoomConfig(bytes []byte) error {
 }
 
 func (room *RoomInstance) GetRoomId() string {
-	if room.roomId == "" {
-		glog.Errorln("GetRoomId: Empty RoomId")
-	}
 	return room.roomId
 }
 
@@ -190,6 +188,7 @@ func (room *RoomInstance) FetchLiveQuestion() (*data.LivePollData, error) {
 }
 
 func (room *RoomInstance) EndEvent() error {
+	//TODO: store it in database and make room nil
 	room.qMutex.Lock()
 	defer room.qMutex.Unlock()
 	room.pollsData = append(room.pollsData, room.currentQuestion)
@@ -209,3 +208,54 @@ MoveToNextQuestion is being done,
 	- TODO(Rohan) - Handle the case where one question's response gets aggregated
 		in other question.
 */
+
+//TODO: See if we need to send question multiple times??
+func (room *RoomInstance) SendLiveQuestion(question []byte) {
+
+	//first register all the available clients
+	room.LiveQuestionHandler.RegisterAllClients()
+
+	room.LiveQuestionHandler.Broadcast <- question
+}
+
+//function to write live responses, it broadcasts message every one sec
+func (room *RoomInstance) SendLiveResponse(ch *socket.ClientHandler) {
+	ticker := time.NewTicker(1 * time.Second)
+
+	//Send based on the revision, dont send duplicate data.
+	resLength := 0
+	defer func() {
+		ticker.Stop()
+	}()
+
+	for {
+		select {
+		case <-ticker.C:
+			//get the live data
+			if room.currentState != WAITING_ON_CLIENTS_FOR_RESPONSES {
+				//We moved to the next question
+				glog.Info("Stopped sending live results")
+				return
+			}
+			data, len := room.currentQuestion.GetResponseStats()
+
+			//only send if current length is greater
+			if len > resLength {
+				responseBytes, err := json.Marshal(data)
+
+				if err != nil {
+					glog.Error(err)
+				}
+
+				ch.Broadcast <- responseBytes
+
+				resLength = len
+			} else if len < resLength {
+				glog.Error("How responses length decreased??")
+			}
+
+		case <-room.StopSendingLiveResults:
+			return
+		}
+	}
+}
