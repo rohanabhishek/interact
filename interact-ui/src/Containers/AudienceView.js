@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import AudienceLiveResultsView from './AudienceLiveResultsView';
 import AudienceQuestionView from './AudienceQuestionView';
 import App from '../App';
@@ -6,40 +6,84 @@ import App from '../App';
 const State = {
     loading : 0,
     question : 1,
-    results : 2
+    results : 2,
+    error : 3
 }
 
 const  AudienceView = ({roomId,clientId})=>{
     
-    const liveQuestionSocket = useRef(null);
-    const liveResultsSocket = useRef(null);
+    const wsResults = useRef(null);
+    const wsQuestion = useRef(null);
 
-    const [loading, setLoading] = useState(false)
     const [state, setState] = useState(State.loading)
+    const [pollData, setPollData] = useState(null)
+    const [question, setQuestion] = useState(null)
 
-    useEffect(()=>{
-        connect(`${roomId}/liveResults`, liveResultsSocket)
-        connect(`${roomId}/liveQuestion`, liveQuestionSocket)
+    const setStatePollData = useCallback((data)=>{
+      console.log(data)
+      setPollData(data)
+      setState(State.results)
     },[])
 
-    return(
-        <div>
-            <App/>
-            {state == State.question} && <AudienceQuestionView ws={{liveQuestionSocket}}/>
-            {state == State.results} && <AudienceLiveResultsView ws = {{liveResultsSocket}}/>
-        </div>
-    )
+    useEffect(()=>{
+      connect(wsQuestion, roomId, clientId, `liveQuestion`)
+      connect(wsResults, roomId, clientId, `liveResults`)
+    },[])
+
+    useEffect(()=>{
+      if (!wsQuestion.current) return;
+
+      wsQuestion.current.onmessage = e => {
+        console.log(e)
+        const message = JSON.parse(e.data);
+        console.log("e", message);
+        console.log(message.options)
+        setQuestion(message)
+        setState(State.question)
+      };
+    },[])
+
+    useEffect(()=>{
+      if (!wsResults.current) return;
+
+      wsResults.current.onmessage = e =>{
+        console.log(e)
+        const message = JSON.parse(e.data);
+        console.log("e", message);
+        setPollData(message)
+      }
+    }, [])
+
+    return([
+        (state === state.loading) && <App key={1}/>,          
+        (state === State.question) && <AudienceQuestionView 
+          key={2} 
+          data={question} 
+          loading={state === State.loading} 
+          setState={setStatePollData}
+          clientId={clientId}
+          roomId={roomId}  
+          />,
+        (state === State.results) && <AudienceLiveResultsView 
+          key={3}
+          question ={question.question}
+          options ={question.options} 
+          count={pollData} 
+          loading={state === State.loading}
+          />
+    ])
 }
 
-function connect(socket, ws) {
-    ws.current = new WebSocket(`ws://localhost:8080/${socket}`);
+function connect(ws, roomId, clientId, path ) {
+    ws.current = new WebSocket(`ws://localhost:8080/${roomId}/${path}/${clientId}`);
 
     console.log(ws)
  
+  //TODO: hanlde it correctly
    ws.current.onclose = function(e) {
      console.log('Socket is closed. Reconnect will be attempted in 1 second.', e.reason);
      setTimeout(function() {
-       connect(socket,ws);
+       connect(ws,roomId, clientId, path);
      }, 1000);
    };
  

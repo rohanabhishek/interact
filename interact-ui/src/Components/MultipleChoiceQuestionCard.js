@@ -6,6 +6,8 @@ import {Card,Button,CardHeader,Box,Typography} from '@mui/material';
 
 const MultipleChoiceQuestionCard = ({question, choices, selected, setSelected}) => {
 
+    console.log(question)
+
     const onClickHandler = (index,selected,setSelected,e)=>{
         if( selected === index){
             setSelected(-1);
