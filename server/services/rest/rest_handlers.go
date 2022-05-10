@@ -95,6 +95,10 @@ func ClientsResponseHandler(w http.ResponseWriter, r *http.Request, room *room.R
 	glog.V(2).Info("ClientsResponseHandler: ", r)
 	var response LiveResultsResponse
 
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Content-Type", "application/json")
+
 	// Pre-processing of the request body
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -112,6 +116,7 @@ func ClientsResponseHandler(w http.ResponseWriter, r *http.Request, room *room.R
 	}
 
 	w.WriteHeader(http.StatusOK)
+
 	// json.NewEncoder(w).Encode(response)
 	responseBytes, err := json.Marshal(response)
 	if err != nil {

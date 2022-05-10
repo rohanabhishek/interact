@@ -4,9 +4,12 @@ import './index.css';
 import AudienceView from './Containers/AudienceView';
 import reportWebVitals from './reportWebVitals';
 
+const roomId = "3aedf06b-9170-4e99-adc1-10d6126b756a"
+const clientId = "06cefd8f-fba7-4eca-9059-4dc90fb071d5"
+
 ReactDOM.render(
   <React.StrictMode>
-    <AudienceView roomId={'default-room-id'} clientId={1}/>
+    <AudienceView roomId={roomId} clientId={clientId}/>
   </React.StrictMode>,
   document.getElementById('root')
 );

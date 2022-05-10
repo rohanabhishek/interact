@@ -79,7 +79,7 @@ func (server *WebServer) Handlers() {
 		if !success {
 			glog.Error("Client found but not registered in Results handler how??")
 		}
-	}).Methods("POST")
+	}).Methods("POST", "OPTIONS")
 
 	server.serverMux.HandleFunc("/{roomId}/addLiveQuestion", func(w http.ResponseWriter, r *http.Request) {
 		room, ok := server.getRoomInstance(w, r)
