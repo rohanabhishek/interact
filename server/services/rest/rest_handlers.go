@@ -60,9 +60,10 @@ func JoinEventHandler(w http.ResponseWriter, r *http.Request, room *room.RoomIns
 
 	response.ClientId = clientId
 
-	//empty socket, socket will be initialized in socket handlers
-	room.LiveQuestionHandler.ClientsMapping[clientId] = nil
-	room.LiveResultsHandler.ClientsMapping[clientId] = nil
+	glog.Info("Client joined the event id:", clientId)
+
+	//Add to socket mapping
+	room.SocketHandler.ClientsMapping[clientId] = nil
 
 	//TODO: Send question depending on the state.
 	SetResponseMetadata(w)
@@ -154,17 +155,30 @@ func AddLiveQuestionHandler(w http.ResponseWriter, r *http.Request, room *room.R
 	json.NewEncoder(w).Encode(response)
 
 	//TODO: check if the live response handler should be started instantly after sending the question
-	bytesToSend, err := data.ConvertCurrQuestionToBytes(questionId, pollData)
-	if err != nil {
-		glog.Error("Question Conversion to Bytes failed ", err.Error())
-		errResponse := ErrorResponse{
-			Error: err.Error(),
-		}
-		bytesToSend, _ = json.Marshal(errResponse)
-	}
+	liveQuestionData, err := data.GetCurrentQuestion(questionId, pollData)
+
+	bytesToSend := room.GetSocketResponse(liveQuestionData, err)
+
+	glog.Info("sending the current question...")
+
+	glog.Info("setting the current state to collect responses")
+
+	//Change the state of the server to collect client responses
+	room.SetRoomStateToCollectResponses()
+
+	//TODO: find a better plave to add this??
 	go func() {
 		room.SendLiveQuestion(bytesToSend)
-		room.SendLiveResponse(room.LiveResultsHandler)
+
+		//unregister all clients
+		room.SocketHandler.UnRegisterAllClients()
+
+		//resiter host
+		glog.Info("Registering host id:", room.GetHostId())
+		room.SocketHandler.RegisterClient(room.GetHostId())
+
+		//Start sending live responses
+		room.SendLiveResponse(room.SocketHandler)
 	}()
 }
 
@@ -204,8 +218,7 @@ func EndEventHandler(w http.ResponseWriter, r *http.Request, room *room.RoomInst
 
 	//close the live results and live question handlers
 	go func() {
-		room.LiveResultsHandler.Close <- true
-		room.LiveQuestionHandler.Close <- true
+		room.SocketHandler.Close <- true
 	}()
 
 	var response EndEventResponse
@@ -232,25 +245,10 @@ func MoveToNextQuestionHandler(w http.ResponseWriter, r *http.Request, room *roo
 	json.NewEncoder(w).Encode(response)
 
 	go func() {
-		bytes, err := NotifyStateChangeBytes(UI_STATE_LOADING)
-		if err != nil {
-			glog.Error("notifyStateChangeBytes error: ", err.Error())
-		}
-		//clear the registered clients map in LiveResultsHandler
+		bytes := room.GetSocketResponse(nil, nil)
 		room.NotifyClientsForNextQuestion(bytes)
-		room.LiveResultsHandler.UnRegisterAllClients()
+
 	}()
 	//close the response go routine
 	go func() { room.StopSendingLiveResults <- true }()
-}
-
-func NotifyStateChangeBytes(state int) ([]byte, error) {
-	resp := NotifyStateChangeResponse {
-		State: state,
-	}
-	bytes, err := json.Marshal(resp)
-	if err != nil {
-		glog.Error(err.Error())
-	}
-	return bytes, err
 }

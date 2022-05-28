@@ -58,7 +58,7 @@ func (clientResponse *ClientResponse) UnMarshal(bytes []byte, qtype QuestionType
 		Response string `json:"response"`
 	}{}
 	err := json.Unmarshal(bytes, rawStructData)
-	glog.Infof("clientResponse: bytes %v, rawStructData %v", bytes, rawStructData)
+	//glog.Infof("clientResponse: bytes %v, rawStructData %v", bytes, rawStructData)
 	if err != nil {
 		glog.Error("clientResponse: Unmarshal failed", err.Error())
 		return err
@@ -74,7 +74,7 @@ func (clientResponse *ClientResponse) UnMarshal(bytes []byte, qtype QuestionType
 		clientResponse.ResponseData = responseData
 	}
 
-	glog.Infof("clientResponse Unmarshal: rawStructData: %v, clientResponse: %v", rawStructData, clientResponse)
+	//glog.Infof("clientResponse Unmarshal: rawStructData: %v, clientResponse: %v", rawStructData, clientResponse)
 	return nil
 }
 

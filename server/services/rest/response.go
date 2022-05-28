@@ -15,10 +15,6 @@ type ErrorResponse struct {
 	Error string `json:"error,omitempty"`
 }
 
-type NotifyStateChangeResponse struct {
-	State int `json:"stateChange"`
-}
-
 type CreateInstanceResponse struct {
 	RoomId string `json:"roomId"`
 	HostId string `json:"hostId"`
