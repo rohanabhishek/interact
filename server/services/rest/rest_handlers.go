@@ -98,7 +98,11 @@ func ClientsResponseHandler(w http.ResponseWriter, r *http.Request, room *room.R
 		json.NewEncoder(w).Encode(response)
 		return false
 	} else {
-		response.LiveResults = resultsCountMap
+		liveResults, err := data.GetLiveResponse(resultsCountMap)
+		if err != nil {
+			response.Error = err.Error()
+		}
+		response.LiveResults = liveResults
 	}
 
 	// json.NewEncoder(w).Encode(response)

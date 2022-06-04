@@ -43,7 +43,7 @@ const MultipleChoiceQuestionCard = ({
               }}
               key={index}
             >
-              <Typography>{choice}</Typography>
+              <Typography>{choice.option}</Typography>
             </Button>
           );
         })}

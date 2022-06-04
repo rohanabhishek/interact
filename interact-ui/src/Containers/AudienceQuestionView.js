@@ -14,7 +14,7 @@ const AudienceQuestionView = ({data, loading, setState, clientId, roomId}) => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 clientId:  clientId,
-                response:  data.options[selected]
+                response:  ''+data.options[selected].idx
             })
         };
         fetch(`http://localhost:8080/${roomId}/sendResponse/${clientId}`, requestOptions)

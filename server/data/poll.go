@@ -4,12 +4,18 @@ package data
 import (
 	"encoding/json"
 	"errors"
+	"strconv"
 	"sync"
 
 	"github.com/golang/glog"
 )
 
 type QuestionType int
+
+type Option struct {
+	Idx    int    `json:"idx"`
+	Option string `json:"option"`
+}
 
 const (
 	WordAnswer QuestionType = iota
@@ -28,7 +34,7 @@ type LivePollData struct {
 	QuestionType `json:"questionType"`
 	Question     *string `json:"question"`
 	// options, answer - Used only incase of MCQs
-	Options []*string `json:"options"`
+	Options []*Option `json:"options"`
 	// Use bitmask/sortedOption String to store the answer
 	Answer          *string `json:"answer"`
 	responses       []*ClientResponse
@@ -48,6 +54,13 @@ type ResponseData struct {
 type ClientResponse struct {
 	ClientId     string `json:"clientId"`
 	ResponseData `json:"responseData"`
+}
+
+type LiveResult struct {
+	Count      int `json:"count"`
+	Percentage int `json:"percentage"`
+	Idx        int `json:"idx"`
+	Answer     int `json:"answer,omitempty"`
 }
 
 func (clientResponse *ClientResponse) UnMarshal(bytes []byte, qtype QuestionType) error {
@@ -101,6 +114,18 @@ func NewLivePollData(args []byte) (*LivePollData, error) {
 		glog.Error("Unmarshal of LivePollData failed", err.Error())
 		return nil, err
 	}
+
+	if livePollData.QuestionType == SingleCorrect {
+		//initialize map with the options as key
+		for _, element := range livePollData.Options {
+			livePollData.resultsCountMap[strconv.Itoa(element.Idx)] = 0
+		}
+
+		for k, v := range livePollData.resultsCountMap {
+			glog.Info(k, "value is", v)
+		}
+	}
+
 	return livePollData, nil
 }
 
@@ -110,7 +135,7 @@ func (pollData *LivePollData) UnMarshal(bytes []byte) error {
 		QuestionType interface{} `json:"questionType"`
 		Question     *string     `json:"question"`
 		// options, answer - Used only incase of MCQs
-		Options []*string `json:"options"`
+		Options []*Option `json:"options"`
 		// Use bitmask/sortedOption String to store the answer
 		Answer *string `json:"answer"`
 	}{}
@@ -160,11 +185,51 @@ func (pollData *LivePollData) CollectClientResponse(apiResponse []byte) (map[str
 	return pollData.resultsCountMap, nil
 }
 
-func (pollData *LivePollData) GetResponseStats() (map[string]int, int) {
+//TODO: both api and socket should use same function
+func (pollData *LivePollData) GetLiveSocketResponse() ([]*LiveResult, int, error) {
 	// TODO: Use utils.go and convert the response as per the UI's
 	// frontend handler requirement which will be sent through the socket IO
 	// We might need to send the Answer also, so as to display on UI
 	pollData.mutex.RLock()
 	defer pollData.mutex.RUnlock()
-	return pollData.resultsCountMap, len(pollData.responses)
+	liveResults, err := GetLiveResponse(pollData.resultsCountMap)
+	return liveResults, len(pollData.responses), err
+}
+
+func GetLiveResponse(resultsCountMap map[string]int) ([]*LiveResult, error) {
+	//TODO: take question type as variable and send idx or answer accordingly
+
+	totalCount := 0
+
+	var responses []*LiveResult
+
+	for idx, count := range resultsCountMap {
+		index, err := strconv.Atoi(idx)
+
+		if err != nil {
+			glog.Error("How index is not parsable", err)
+			return nil, err
+		}
+
+		response := &LiveResult{
+			Count:      count,
+			Idx:        index,
+			Percentage: 0,
+		}
+
+		totalCount += count
+
+		responses = append(responses, response)
+	}
+
+	if totalCount == 0 {
+		return responses, nil
+	}
+
+	for _, response := range responses {
+
+		response.Percentage = (response.Count * 100 / totalCount)
+	}
+
+	return responses, nil
 }

@@ -1,4 +1,4 @@
-import AudienceLiveResultsView from "./AudienceLiveResultsView";
+import LiveResultsView from "./LiveResultsView";
 import Fab from "@mui/material/Fab";
 
 const HostLiveResultsView = ({
@@ -10,12 +10,11 @@ const HostLiveResultsView = ({
 }) => {
   return (
     <div>
-      <AudienceLiveResultsView
+      <LiveResultsView
         key={3}
         question={question}
         options={options}
-        count={count}
-        loading={0}
+        results={count}
       />
       <Fab
         variant="extended"

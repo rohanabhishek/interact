@@ -25,7 +25,7 @@ type LiveQuestionData struct {
 	QuestionId   int       `json:"questionId"`
 	QuestionType string    `json:"questionType"`
 	Question     *string   `json:"question"`
-	Options      []*string `json:"options"`
+	Options      []*Option `json:"options"`
 	Error        string    `json:"error,omitempty"`
 }
 

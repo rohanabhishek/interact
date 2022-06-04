@@ -276,14 +276,14 @@ func (room *RoomInstance) SendLiveResponse(ch *socket.ClientHandler) {
 				glog.Info("Stopped sending live results")
 				return
 			}
-			data, len := room.currentQuestion.GetResponseStats()
+			data, len, err := room.currentQuestion.GetLiveSocketResponse()
 
 			//only send if current length is greater
 			if len > resLength {
 
 				glog.Info("Broadcasting live data")
 
-				responseBytes := room.GetSocketResponse(data, nil)
+				responseBytes := room.GetSocketResponse(data, err)
 
 				ch.Broadcast <- responseBytes
 

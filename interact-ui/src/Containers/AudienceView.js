@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import AudienceLiveResultsView from "./AudienceLiveResultsView";
 import AudienceQuestionView from "./AudienceQuestionView";
+import LiveResultsView from "./LiveResultsView";
 import App from "../App";
 import { UserContext } from "../UserContext.js";
 
@@ -139,12 +140,11 @@ const AudienceView = () => {
       />
     ),
     state === State.liveResults && (
-      <AudienceLiveResultsView
+      <LiveResultsView
         key={3}
         question={question.question}
         options={question.options}
-        count={pollData}
-        loading={state === State.loading}
+        results={pollData}
       />
     ),
   ];

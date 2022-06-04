@@ -69,8 +69,15 @@ const QuestionCard = ({ setState }) => {
   };
 
   const handleUpdateOption = (value, index) => {
+
+    //option object
+    let option = {
+      idx: index,
+      option: value
+    }
+
     let newOptions = [...options];
-    newOptions[index] = value;
+    newOptions[index] = option;
     updateOptions(newOptions);
   };
 
@@ -144,7 +151,7 @@ const QuestionCard = ({ setState }) => {
                 placeholder={
                   "Add Option " + (index + 1).toString() + "content here"
                 }
-                value={option}
+                value={option.option}
                 key={index}
                 onChange={(e) => handleUpdateOption(e.target.value, index)}
                 handleDeleteOption={(i) => handleDeleteOption(i)}

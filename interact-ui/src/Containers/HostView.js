@@ -79,7 +79,7 @@ const HostView = () => {
   const setStateQuestion = useCallback((data) => {
     console.log(data);
     setQuestion(data);
-    setState(State.results);
+    setState(State.liveResults);
   }, []);
 
   const changeStateToQuestion = useCallback(() => {
@@ -107,8 +107,13 @@ const HostView = () => {
       else if(message.state!=null){
         switch (message.state){
           //TODO: handle other cases
+          case 0:
+            setPollData(message.response)
+            setState(State.liveResults)
+            break
           case 2:
             setPollData(message.response)
+            setState(State.liveResults)
             break
         }
       }
@@ -118,7 +123,7 @@ const HostView = () => {
 
   return [
     state === State.question && <QuestionCard setState={setStateQuestion} />,
-    state === State.results && (
+    state === State.liveResults && (
       <HostLiveResultsView
         key={3}
         question={question.question}
