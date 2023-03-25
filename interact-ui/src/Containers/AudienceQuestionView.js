@@ -14,7 +14,7 @@ const AudienceQuestionView = ({data, loading, setState, clientId, roomId}) => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 clientId:  clientId,
-                response:  data.options[selected]
+                response:  ''+data.options[selected].idx
             })
         };
         fetch(`http://localhost:8080/${roomId}/sendResponse/${clientId}`, requestOptions)
@@ -25,25 +25,7 @@ const AudienceQuestionView = ({data, loading, setState, clientId, roomId}) => {
                 setState(data.liveResults)
             });
     }
-
-    // let question = "Who is the Captain of Indian Cricket Team";
-    // let answers = ["Kohli", "Rohit","Pant"];
-
-    // const [data, setData] = useState(null)
-    // const [loading, setLoading] = useState(true)
-    // const [error, setError] = useState(null)
-
-    // useEffect(() => {
-    //     if (!ws.current) return;
-
-    //     ws.onmessage = e => {
-    //         const message = JSON.parse(e.data);
-    //         console.log("e", message);
-    //         setData(message)
-    //         setLoading(false)
-    //     };
-    // }, []);
-
+    
     return(
         //TODO: handle loading and error states.
         (!loading) &&

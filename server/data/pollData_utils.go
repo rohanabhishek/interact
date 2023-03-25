@@ -1,8 +1,8 @@
 package data
 
 import (
-	"encoding/json"
 	"errors"
+
 	"github.com/golang/glog"
 )
 
@@ -25,14 +25,14 @@ type LiveQuestionData struct {
 	QuestionId   int       `json:"questionId"`
 	QuestionType string    `json:"questionType"`
 	Question     *string   `json:"question"`
-	Options      []*string `json:"options"`
+	Options      []*Option `json:"options"`
 	Error        string    `json:"error,omitempty"`
 }
 
 // ConvertCurrQuestionToBytes converts the current question to bytes so as to
 // send to clients on socket
-func ConvertCurrQuestionToBytes(questionId int, pollData *LivePollData) ([]byte, error) {
-	response := LiveQuestionData{
+func GetCurrentQuestion(questionId int, pollData *LivePollData) (*LiveQuestionData, error) {
+	response := &LiveQuestionData{
 		Owner:    pollData.Owner,
 		Question: pollData.Question,
 		Options:  pollData.Options,
@@ -47,11 +47,5 @@ func ConvertCurrQuestionToBytes(questionId int, pollData *LivePollData) ([]byte,
 	}
 	response.QuestionId = questionId
 
-	marshalBytes, err := json.Marshal(response)
-	if err != nil {
-		glog.Error(err)
-		return nil, err
-	}
-
-	return marshalBytes, nil
+	return response, nil
 }

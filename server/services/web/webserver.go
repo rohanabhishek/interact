@@ -3,13 +3,14 @@ package web
 
 import (
 	"encoding/json"
-	"github.com/golang/glog"
-	"github.com/google/uuid"
-	"github.com/gorilla/mux"
 	room "interact/server/room"
 	rest "interact/server/services/rest"
 	"io"
 	"net/http"
+
+	"github.com/golang/glog"
+	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 )
 
 type WebServer struct {
@@ -60,7 +61,7 @@ func (server *WebServer) Handlers() {
 				return
 			}
 
-			//add to room instnace id mapping
+			//add to room instance id mapping
 			server.roomInstances[roomId] = roomInstance
 
 			err = roomInstance.UnMarshal(bodyBytes)
@@ -122,8 +123,7 @@ func (server *WebServer) Handlers() {
 				return
 			}
 
-			//Register client to LiveResultsSocket
-			success := room.LiveResultsHandler.RegisterClient(clientId)
+			success := room.SocketHandler.RegisterClient(clientId)
 
 			if !success {
 				glog.Error("Client found but not registered in Results handler how??")
@@ -142,13 +142,6 @@ func (server *WebServer) Handlers() {
 			if !ok {
 				glog.Errorf("Room not found %s", mux.Vars(r)["roomId"])
 				return
-			}
-
-			//Register client to LiveResultsSocket
-			success := room.LiveResultsHandler.RegisterClient(room.GetHostId())
-
-			if !success {
-				glog.Error("Client found but not registered in Results handler how??")
 			}
 
 			rest.AddLiveQuestionHandler(w, r, room)
@@ -215,52 +208,7 @@ func (server *WebServer) Handlers() {
 		}
 	}).Methods("POST", "OPTIONS")
 
-	server.serverMux.HandleFunc("/{roomId}/liveResults/{clientId}", func(w http.ResponseWriter, r *http.Request) {
-		room, ok := server.getRoomInstance(w, r)
-
-		if !ok {
-			glog.Errorf("Room not found %s", mux.Vars(r)["roomId"])
-			return
-		}
-		//TODO: Add validation of clients
-
-		clientId := mux.Vars(r)["clientId"]
-
-		client, err := room.LiveResultsHandler.ServeWebsocket(w, r, clientId)
-
-		if err != nil {
-			//TODO: send error response
-		}
-
-		/**
-			If there is previous socket and somehow we lost connection, we need to close goroutine
-			of the previous one
-		**/
-		if prevClient, ok := room.LiveResultsHandler.ClientsMapping[clientId]; ok {
-			//If previous socket is registered, we need to add this socket
-
-			if room.LiveResultsHandler.IsClientRegistered(prevClient) {
-				//register the new socket
-				room.LiveResultsHandler.Register <- client
-
-				//unregister the old socket
-				room.LiveResultsHandler.Unregister <- prevClient
-			}
-
-			//close the go routine
-			go func() {
-				if prevClient != nil {
-					prevClient.Close <- true
-				}
-				prevClient = nil
-			}()
-		}
-
-		//Replace or Add new client
-		room.LiveResultsHandler.ClientsMapping[clientId] = client
-	})
-
-	server.serverMux.HandleFunc("/{roomId}/liveQuestion/{clientId}", func(w http.ResponseWriter, r *http.Request) {
+	server.serverMux.HandleFunc("/{roomId}/ws/{clientId}", func(w http.ResponseWriter, r *http.Request) {
 		room, ok := server.getRoomInstance(w, r)
 
 		if !ok {
@@ -269,33 +217,38 @@ func (server *WebServer) Handlers() {
 		}
 
 		//TODO: Add validation of clients
-
 		clientId := mux.Vars(r)["clientId"]
 
-		client, err := room.LiveQuestionHandler.ServeWebsocket(w, r, clientId)
+		client, err := room.SocketHandler.ServeWebsocket(w, r, clientId)
 
 		if err != nil {
 			//TODO: send error response
+			glog.Error("error serving client responses id:", clientId)
 		}
 
 		/**
 			If there is previous socket and somehow we lost connection, we need to close goroutine
 			of the previous one
 		**/
-		if prevClient, ok := room.LiveQuestionHandler.ClientsMapping[clientId]; ok {
+		if prevClient, ok := room.SocketHandler.ClientsMapping[clientId]; ok {
 			//If previous socket is registered, we need to add this socket
+			glog.Info("existing socket was found for the given client... replacing with the new one id:", clientId)
 
-			if room.LiveQuestionHandler.IsClientRegistered(prevClient) {
+			if room.SocketHandler.IsClientRegistered(prevClient) {
+
+				glog.Info("registering the new socket client id:", clientId)
 				//register the new socket
-				room.LiveQuestionHandler.Register <- client
+				room.SocketHandler.Register <- client
 
+				glog.Info("unregistering the old socket client id:", clientId)
 				//unregister the old socket
-				room.LiveQuestionHandler.Unregister <- prevClient
+				room.SocketHandler.Unregister <- prevClient
 			}
 
 			//close the go routine
 			go func() {
 				if prevClient != nil {
+					glog.Info("closing the previous go routine")
 					prevClient.Close <- true
 				}
 				prevClient = nil
@@ -303,7 +256,8 @@ func (server *WebServer) Handlers() {
 		}
 
 		//Replace or Add new client
-		room.LiveQuestionHandler.ClientsMapping[clientId] = client
+		glog.Info("adding client to socket client handler mapping id:", clientId)
+		room.SocketHandler.ClientsMapping[clientId] = client
 	})
 }
 
@@ -340,6 +294,8 @@ func (server *WebServer) NewRoomInstance() (string, *room.RoomInstance, error) {
 	hostId := uuid.NewString()
 
 	glog.Info("New room instance is created: ", roomId)
+
+	glog.Info("Host Id: ", hostId)
 
 	return roomId, room.NewRoomInstance(roomId, hostId), nil
 }

@@ -21,9 +21,16 @@ const (
 
 const (
 	WAITING_ON_HOST_FOR_QUESTION State = iota
-	WAITING_ON_CLIENTS_FOR_RESPONSES
+	SENDING_QUESTION_TO_CLIENTS
+	COLLECTING_CLIENT_RESPONSES
 	EVENT_END
 )
+
+type LiveSocketResponse struct {
+	State    `json:"state"`
+	Response interface{} `json:"response"`
+	Error    error       `json:"error,omitempty"`
+}
 
 type RoomInstance struct {
 	// roomId specifies the id of the room. eg: suffix at url
@@ -41,8 +48,7 @@ type RoomInstance struct {
 	// question OR ends the event
 	currentQuestion        *data.LivePollData
 	numOfParticipants      int
-	LiveResultsHandler     *socket.ClientHandler
-	LiveQuestionHandler    *socket.ClientHandler
+	SocketHandler          *socket.ClientHandler
 	StopSendingLiveResults chan bool
 	// qMutex handles sync for questions data
 	qMutex sync.RWMutex
@@ -57,9 +63,8 @@ func NewRoomInstance(roomId string, hostId string) *RoomInstance {
 		currentState:           WAITING_ON_HOST_FOR_QUESTION,
 		currentQuestion:        nil,
 		numOfParticipants:      0,
-		LiveResultsHandler:     socket.NewClientHandler(),
-		LiveQuestionHandler:    socket.NewClientHandler(),
 		StopSendingLiveResults: make(chan bool),
+		SocketHandler:          socket.NewClientHandler(),
 	}
 
 	return room
@@ -130,6 +135,22 @@ func (room *RoomInstance) MoveToNextQuestion() error {
 	return nil
 }
 
+func (room *RoomInstance) SetRoomStateToCollectResponses() error {
+	room.qMutex.Lock()
+	defer room.qMutex.Unlock()
+	if room.currentState != SENDING_QUESTION_TO_CLIENTS {
+
+		glog.Error("error setting room state to collecting client responses")
+
+		return errors.New("Cannot set state to collecting responses as current state is not sending question")
+	}
+
+	//set the current state
+	room.currentState = COLLECTING_CLIENT_RESPONSES
+
+	return nil
+}
+
 func (room *RoomInstance) AddLiveQuestion(pollData *data.LivePollData) (int, error) {
 	room.qMutex.Lock()
 	defer room.qMutex.Unlock()
@@ -141,7 +162,7 @@ func (room *RoomInstance) AddLiveQuestion(pollData *data.LivePollData) (int, err
 	room.currentQuestion = pollData
 	questionId := len(room.pollsData) + 1
 	// start accepting the client's responses
-	room.currentState = WAITING_ON_CLIENTS_FOR_RESPONSES
+	room.currentState = SENDING_QUESTION_TO_CLIENTS
 	return questionId, nil
 }
 
@@ -163,7 +184,7 @@ func (room *RoomInstance) CollectClientResponse(args []byte) (map[string]int, er
 	// handler and process the object directly
 	room.qMutex.RLock()
 	defer room.qMutex.RUnlock()
-	if room.currentState != WAITING_ON_CLIENTS_FOR_RESPONSES {
+	if room.currentState != COLLECTING_CLIENT_RESPONSES {
 		glog.Error("collectClientResponse: Currenstate is not WAITING_ON_CLIENTS_FOR_RESPONSES")
 		return nil, errors.New("current State is not WAITING_ON_CLIENTS_FOR_RESPONSES")
 	}
@@ -180,7 +201,7 @@ func (room *RoomInstance) FetchCurrentState() State {
 func (room *RoomInstance) FetchLiveQuestion() (*data.LivePollData, error) {
 	room.qMutex.RLock()
 	defer room.qMutex.RUnlock()
-	if room.currentState != WAITING_ON_CLIENTS_FOR_RESPONSES {
+	if room.currentState != COLLECTING_CLIENT_RESPONSES {
 		glog.Error("collectClientResponse: Currenstate is not WAITING_ON_CLIENTS_FOR_RESPONSES")
 		return nil, errors.New("current State is not WAITING_ON_CLIENTS_FOR_RESPONSES")
 	}
@@ -217,26 +238,29 @@ MoveToNextQuestion is being done,
 
 //TODO: See if we need to send question multiple times??
 func (room *RoomInstance) SendLiveQuestion(question []byte) {
+	glog.Info("sending live question to clients")
 
-	//first register all the available clients
-	room.LiveQuestionHandler.RegisterAllClients()
+	room.SocketHandler.RegisterAllClients()
+	room.SocketHandler.Broadcast <- question
 
-	room.LiveQuestionHandler.Broadcast <- question
+	glog.Info("current live question sent")
 }
 
 // Send the state change while MoveToNextQuestion triggered by Host
 func (room *RoomInstance) NotifyClientsForNextQuestion(state []byte) {
-	// Send this to both handles since clients could be on either of them
-	room.LiveQuestionHandler.RegisterAllClients()
-	room.LiveQuestionHandler.Broadcast <- state
+	glog.Info("sending state change to all clients")
 
-	room.LiveResultsHandler.Broadcast <- state
+	room.SocketHandler.RegisterAllClients()
+	room.SocketHandler.Broadcast <- state
+
+	glog.Info("state change update sent")
 }
 
 //function to write live responses, it broadcasts message every one sec
 func (room *RoomInstance) SendLiveResponse(ch *socket.ClientHandler) {
 	ticker := time.NewTicker(1 * time.Second)
 
+	glog.Info("Started sending live responses in socket handler")
 	//Send based on the revision, dont send duplicate data.
 	resLength := 0
 	defer func() {
@@ -247,20 +271,19 @@ func (room *RoomInstance) SendLiveResponse(ch *socket.ClientHandler) {
 		select {
 		case <-ticker.C:
 			//get the live data
-			if room.currentState != WAITING_ON_CLIENTS_FOR_RESPONSES {
+			if room.currentState != COLLECTING_CLIENT_RESPONSES {
 				//We moved to the next question
 				glog.Info("Stopped sending live results")
 				return
 			}
-			data, len := room.currentQuestion.GetResponseStats()
+			data, len, err := room.currentQuestion.GetLiveSocketResponse()
 
 			//only send if current length is greater
 			if len > resLength {
-				responseBytes, err := json.Marshal(data)
 
-				if err != nil {
-					glog.Error(err)
-				}
+				glog.Info("Broadcasting live data")
+
+				responseBytes := room.GetSocketResponse(data, err)
 
 				ch.Broadcast <- responseBytes
 
@@ -270,7 +293,30 @@ func (room *RoomInstance) SendLiveResponse(ch *socket.ClientHandler) {
 			}
 
 		case <-room.StopSendingLiveResults:
+			glog.Info("stopped sending live results and moving to next question")
 			return
 		}
 	}
+}
+
+func (room *RoomInstance) GetSocketResponse(res interface{}, err error) []byte {
+	response := LiveSocketResponse{
+		State:    room.FetchCurrentState(),
+		Response: res,
+		Error:    err,
+	}
+
+	bytesToSend, err := json.Marshal(response)
+
+	if err != nil {
+		glog.Error("Response conversion to bytes failed ", err.Error())
+
+		response = LiveSocketResponse{
+			Error: err,
+		}
+
+		bytesToSend, _ = json.Marshal(response)
+	}
+
+	return bytesToSend
 }

@@ -2,6 +2,7 @@
 package rest
 
 import (
+	"interact/server/data"
 	"interact/server/room"
 )
 
@@ -13,10 +14,6 @@ const (
 
 type ErrorResponse struct {
 	Error string `json:"error,omitempty"`
-}
-
-type NotifyStateChangeResponse struct {
-	State int `json:"stateChange"`
 }
 
 type CreateInstanceResponse struct {
@@ -44,8 +41,8 @@ type JoinEventResponse struct {
 }
 
 type LiveResultsResponse struct {
-	LiveResults map[string]int `json:"liveResults"`
-	Error       string         `json:"error,omitempty"`
+	LiveResults []*data.LiveResult `json:"liveResults"`
+	Error       string             `json:"error,omitempty"`
 }
 
 // TODO: Can merge FetchCurrentState into the JoinEventResponse
@@ -54,12 +51,12 @@ type FetchCurrentStateResponse struct {
 }
 
 type FetchLiveQuestionResponse struct {
-	Owner        *string   `json:"owner"`
-	QuestionId   int       `json:"questionId"`
-	QuestionType string    `json:"questionType"`
-	Question     *string   `json:"question"`
-	Options      []*string `json:"options"`
-	Error        string    `json:"error,omitempty"`
+	Owner        *string           `json:"owner"`
+	QuestionId   int               `json:"questionId"`
+	QuestionType data.QuestionType `json:"questionType"`
+	Question     *string           `json:"question"`
+	Options      []*data.Option    `json:"options"`
+	Error        string            `json:"error,omitempty"`
 }
 
 type MoveToNextQuestionResponse struct {

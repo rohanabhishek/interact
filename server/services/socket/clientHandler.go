@@ -1,5 +1,7 @@
 package socket
 
+import "github.com/golang/glog"
+
 type ClientHandler struct {
 	// Registered clients.
 	clients map[*Client]bool
@@ -29,11 +31,16 @@ func (ch *ClientHandler) IsClientRegistered(c *Client) bool {
 
 func (ch *ClientHandler) RegisterClient(id string) bool {
 	if client, ok := ch.ClientsMapping[id]; ok {
+
+		glog.Info("Registering client id:", id)
+
 		if client != nil {
 			ch.clients[client] = true
 			return true
 		}
 	}
+
+	glog.Error("Unable to register client id:", id)
 	return false
 }
 
@@ -46,6 +53,9 @@ func (ch *ClientHandler) RegisterAllClients() {
 }
 
 func (ch *ClientHandler) UnRegisterAllClients() {
+
+	glog.Info("Unregistering all clients...")
+
 	for k := range ch.clients {
 		delete(ch.clients, k)
 	}

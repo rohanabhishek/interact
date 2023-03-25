@@ -7,15 +7,20 @@ import React, {
 } from "react";
 import AudienceLiveResultsView from "./AudienceLiveResultsView";
 import AudienceQuestionView from "./AudienceQuestionView";
+import LiveResultsView from "./LiveResultsView";
 import App from "../App";
 import { UserContext } from "../UserContext.js";
 
+//TODO: Add poll end and question end state
 const State = {
   loading: 0,
   question: 1,
-  results: 2,
+  liveResults: 2,
   error: 3,
 };
+
+const intialRetryTime = 1000
+const maxRetryTimeOut = 5000
 
 const AudienceView = () => {
   const { contextDetails } = useContext(UserContext);
@@ -24,55 +29,103 @@ const AudienceView = () => {
   // let isHost = contextDetails.isHost;
   // let navigate = useNavigate();
 
-  const wsResults = useRef(null);
-  const wsQuestion = useRef(null);
+  const ws = useRef(null);
 
   const [state, setState] = useState(State.loading);
   const [pollData, setPollData] = useState(null);
   const [question, setQuestion] = useState(null);
+  const [error, setError] = useState(null)
+
+
+  const connect = (ws, roomId, clientId, path, retryTime ) =>{
+
+    ws.current = new WebSocket(`ws://localhost:8080/${roomId}/${path}/${clientId}`);
+
+    console.log(ws)
+
+    let isConnected = false
+
+    ws.current.onopen = (e) => {
+      console.log("[open] Connection established" , e)
+      isConnected = true
+    }
+ 
+    ws.current.onclose = (e) => {
+
+      let currentRetryTime = retryTime
+
+      if(isConnected){
+        currentRetryTime = intialRetryTime
+      }
+
+      let nextRetryTime = currentRetryTime + Math.floor(Math.random() * intialRetryTime);
+
+      console.log(nextRetryTime)
+
+      if(nextRetryTime <= maxRetryTimeOut){
+        console.log(`Socket is closed. Reconnect will be attempted in ${nextRetryTime} second.`, e.reason);
+        setTimeout(() =>{
+          connect(ws,roomId, clientId, path, 2*currentRetryTime)
+        }, nextRetryTime)
+      }
+      else{
+        console.error(`Socket is closed. Maximum retries are reached`, e.reason);
+        setState(State.error)
+        setError(e.reason)
+      } 
+   }
+ 
+   ws.current.onerror = function(err) {
+     console.error('Socket encountered error: ', err.message, 'Closing socket');
+     ws.current.close();
+   }
+  }
 
   const setStatePollData = useCallback((data) => {
     console.log(data);
     setPollData(data);
-    setState(State.results);
+    setState(State.liveResults);
   }, []);
 
   useEffect(() => {
-    connect(wsQuestion, roomId, clientId, `liveQuestion`);
-    connect(wsResults, roomId, clientId, `liveResults`);
+    connect(ws, roomId, clientId, 'ws', intialRetryTime)
   }, []);
 
-  useEffect(() => {
-    if (!wsQuestion.current) return;
+  useEffect(()=>{
+    if(!ws.current) return;
 
-    wsQuestion.current.onmessage = (e) => {
-      console.log(e);
+    ws.current.onmessage = (e) =>{
+      console.log("event", e)
+
       const message = JSON.parse(e.data);
-      console.log("e", message);
-      if (message.stateChange != null) {
-        setState(message.stateChange);
-      } else {
-        console.log(message.options);
-        setQuestion(message);
-        setState(State.question);
-      }
-    };
-  }, []);
 
-  useEffect(() => {
-    if (!wsResults.current) return;
+      console.log("message", message)
 
-    wsResults.current.onmessage = (e) => {
-      console.log(e);
-      const message = JSON.parse(e.data);
-      console.log("e", message);
-      if (message.stateChange != null) {
-        setState(message.stateChange);
-      } else {
-        setPollData(message);
+      if(message.error != null)
+      {
+        setState(State.error)
+        setError(message.error)
       }
-    };
-  }, []);
+      else if(message.state != null){
+        switch (message.state){
+          case 0:
+            setState(State.loading)
+            break
+          case 1:
+            console.log("setting question....")
+            setQuestion(message.response)
+            setState(State.question)
+            break
+          case 2:
+            console.log("setting responses ....")
+            setPollData(message.response)
+            setState(State.liveResults)
+            break
+        }
+      }
+    }
+
+  })
 
   return [
     state === State.loading && <App key={1} />,
@@ -86,40 +139,15 @@ const AudienceView = () => {
         roomId={roomId}
       />
     ),
-    state === State.results && (
-      <AudienceLiveResultsView
+    state === State.liveResults && (
+      <LiveResultsView
         key={3}
         question={question.question}
         options={question.options}
-        count={pollData}
-        loading={state === State.loading}
+        results={pollData}
       />
     ),
   ];
 };
-
-function connect(ws, roomId, clientId, path) {
-  ws.current = new WebSocket(
-    `ws://localhost:8080/${roomId}/${path}/${clientId}`
-  );
-
-  console.log(ws);
-
-  //TODO: hanlde it correctly
-  ws.current.onclose = function (e) {
-    console.log(
-      "Socket is closed. Reconnect will be attempted in 1 second.",
-      e.reason
-    );
-    setTimeout(function () {
-      connect(ws, roomId, clientId, path);
-    }, 1000);
-  };
-
-  ws.current.onerror = function (err) {
-    console.error("Socket encountered error: ", err.message, "Closing socket");
-    ws.current.close();
-  };
-}
 
 export default AudienceView;
